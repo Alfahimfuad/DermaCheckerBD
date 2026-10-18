@@ -149,6 +149,7 @@ manage.py
 | `DJANGO_SECRET_KEY`        | `dev-insecure-...`                               | Generate a long random string for production.       |
 | `DJANGO_ALLOWED_HOSTS`     | `localhost,127.0.0.1,...`                        | Comma-separated. Render domain is auto-added.       |
 | `DATABASE_URL`             | unset                                            | Hosted PostgreSQL connection string; SSL is required. |
+| `CLOUDINARY_URL`           | unset locally                                    | Required when `DJANGO_DEBUG=False`; Cloudinary credentials URL for uploaded images. |
 | `LOCAL_DB_HOST`            | unset                                            | Set to `127.0.0.1` to use PostgreSQL installed on your PC. |
 | `LOCAL_DB_PORT`            | `5432`                                           | Local PostgreSQL port.                               |
 | `LOCAL_DB_NAME`            | unset                                            | Local database name; required when `LOCAL_DB_HOST` is set. |
@@ -274,29 +275,13 @@ instance. Render Free services can sleep when idle; use a paid plan and a
 pre-deploy migration command if you later need always-on service or multiple
 instances.
 
-### Persistent image storage on Render
+### Persistent image storage in production
 
-Render's filesystem is **ephemeral** — uploaded images are lost on every
-redeploy. For production image persistence:
-
-- Use `django-storages` (already in `requirements.txt`) with an S3-compatible
-  bucket (AWS S3, Cloudflare R2, Backblaze B2, etc.).
-- Configure `STORAGES` in `settings.py` to route `media` to the S3 backend.
-- Set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`,
-  and `AWS_S3_REGION_NAME` as Render environment variables.
-
-A minimal production `STORAGES` snippet:
-
-```python
-STORAGES = {
-    "default": {
-        "BACKEND": "storages.backends.s3.S3Storage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-```
+Production requires a `CLOUDINARY_URL` deployment secret and uses Cloudinary
+for uploaded images. If `DJANGO_DEBUG=False` and this value is missing, Django
+fails during startup rather than silently saving uploads to the ephemeral local
+filesystem. Local development continues to use `MEDIA_ROOT` when the URL is
+unset. Never commit the Cloudinary URL to source control.
 
 ---
 

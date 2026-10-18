@@ -106,11 +106,13 @@ def quality_check_view(request):
 
     if request.method == "POST" and "image" in request.FILES:
         uploaded = request.FILES["image"]
-        uploaded_name = uploaded.name
+        # Browsers normally send a basename, but normalize both POSIX and
+        # Windows separators before using the name in template/JS handoff.
+        uploaded_name = Path(uploaded.name.replace("\\", "/")).name
 
         image_name = (
             (request.POST.get("image_name") or "").strip()
-            or Path(uploaded.name).stem
+            or Path(uploaded_name).stem
             or "skin-image"
         )[:255]
 

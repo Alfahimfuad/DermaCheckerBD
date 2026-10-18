@@ -3,6 +3,7 @@ privacy, chatbot endpoint."""
 import base64
 import io
 import json
+import re
 import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -408,7 +409,7 @@ class PhotoGuidePredictionHandoffTests(TestCase):
         ):
             quality_response = self.client.post("/quality/", {
                 "image": SimpleUploadedFile(
-                    "original-lesion.jpg",
+                    r"C:\fakepath\original-lesion.jpg",
                     original_bytes,
                     content_type="image/jpeg",
                 ),
@@ -416,6 +417,10 @@ class PhotoGuidePredictionHandoffTests(TestCase):
 
         self.assertEqual(quality_response.status_code, 200)
         self.assertEqual(quality_response.context["report"].overall_score, 100.0)
+        self.assertEqual(
+            quality_response.context["uploaded_name"],
+            "original-lesion.jpg",
+        )
         self.assertEqual(
             quality_response.context["prediction_data_url"],
             "data:image/jpeg;base64," + base64.b64encode(original_bytes).decode("ascii"),
@@ -427,9 +432,9 @@ class PhotoGuidePredictionHandoffTests(TestCase):
         self.assertTrue(quality_response.context["report"].suitable)
 
         prediction_response = self.client.post("/predict/", {
-            "image_name": "original-lesion",
+            "image_name": quality_response.context["image_name"],
             "image": SimpleUploadedFile(
-                "original-lesion.jpg",
+                quality_response.context["uploaded_name"],
                 original_bytes,
                 content_type="image/jpeg",
             ),
@@ -437,6 +442,10 @@ class PhotoGuidePredictionHandoffTests(TestCase):
 
         self.assertEqual(prediction_response.status_code, 302)
         self.assertEqual(PredictionRecord.objects.count(), 1)
+        saved_record = PredictionRecord.objects.get()
+        self.assertEqual(saved_record.image_name, "original-lesion")
+        self.assertTrue(saved_record.image.name.startswith("uploads/"))
+        self.assertNotIn("\\", saved_record.image.name)
 
     def test_png_upload_keeps_png_bytes_for_the_prediction_handoff(self):
         original = make_skin_image(seed=145, size=(300, 300))
@@ -531,14 +540,10 @@ class PhotoGuideHandoffTests(TestCase):
             html.index('id="qualityImagePreview"'),
             html.index('data-i18n="pg.enhanced"'),
         )
-<<<<<<< HEAD
         self.assertEqual(
             response.context["customizer_data_url"],
             response.context["prediction_data_url"],
         )
-=======
-        self.assertIsNone(response.context["customizer_data_url"])
->>>>>>> 7e1b711554afacc4f336cbf39c2ab9e8453f05a5
         self.assertIn('data-customizer-url=""', html)
         self.assertLess(
             html.index('data-i18n="pg.enhance_note"'),
@@ -585,7 +590,6 @@ class PhotoGuideHandoffTests(TestCase):
         self.assertContains(response, 'id="downloadQualityImage"')
         self.assertContains(response, 'id="runPredictionButton"')
 
-<<<<<<< HEAD
     def test_customizer_uses_the_enhanced_full_resolution_image(self):
         original = make_skin_image(seed=44, size=(640, 480))
         enhanced = Image.new("RGB", (640, 480), (45, 90, 150))
@@ -672,8 +676,6 @@ class PhotoGuideHandoffTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "pg.low_quality_warning")
 
-=======
->>>>>>> 7e1b711554afacc4f336cbf39c2ab9e8453f05a5
     def test_quality_handoff_exposes_an_editable_image_name(self):
         image = make_skin_image(seed=43, size=(640, 480))
         upload = SimpleUploadedFile(
@@ -689,6 +691,50 @@ class PhotoGuideHandoffTests(TestCase):
         self.assertEqual(response.context["image_name"], "arm-lesion")
         self.assertContains(response, 'id="qualityImageName"')
         self.assertContains(response, 'id="qualityPredictionName"')
+
+    def test_quality_handoff_normalizes_windows_filename_paths(self):
+        image = make_skin_image(seed=48, size=(300, 300))
+        upload = SimpleUploadedFile(
+            r"C:\fakepath\lesion-photo.jpg",
+            image_to_jpeg_bytes(image),
+            content_type="image/jpeg",
+        )
+        with patch(
+            "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed",
+            return_value=(image, EnhancementReport(applied=False)),
+        ):
+            response = self.client.post("/quality/", {"image": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["uploaded_name"], "lesion-photo.jpg")
+        self.assertEqual(response.context["image_name"], "lesion-photo")
+        html = response.content.decode()
+        self.assertIn('data-file-name="lesion-photo.jpg"', html)
+        self.assertNotIn("fakepath", html)
+
+    def test_run_prediction_button_has_only_its_requested_label(self):
+        image = make_skin_image(seed=49, size=(300, 300))
+        upload = SimpleUploadedFile(
+            "button-label.jpg",
+            image_to_jpeg_bytes(image),
+            content_type="image/jpeg",
+        )
+        with patch(
+            "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed",
+            return_value=(image, EnhancementReport(applied=False)),
+        ):
+            response = self.client.post("/quality/", {"image": upload})
+
+        html = response.content.decode()
+        button = re.search(
+            r'<button\b(?=[^>]*id="runPredictionButton")[^>]*>(.*?)</button>',
+            html,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(button)
+        button_text = re.sub(r"<[^>]+>", "", button.group(1)).strip()
+        self.assertEqual(button_text, "Run prediction on this image")
+        self.assertNotIn("Preparing image", button_text)
 
 
 @override_settings(ML_MODEL_BACKEND="mock")

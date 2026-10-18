@@ -12,6 +12,7 @@ import os
 import dj_database_url
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
+from dermacheckerbd.storage import resolve_media_storage_backend
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -26,6 +27,8 @@ if not DEBUG and not _configured_secret_key:
     raise ImproperlyConfigured(
         "DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is False."
     )
+CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "").strip()
+DEFAULT_MEDIA_STORAGE = resolve_media_storage_backend(DEBUG, CLOUDINARY_URL)
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS",
     "localhost,127.0.0.1,0.0.0.0,.onrender.com,.replit.dev",
@@ -63,6 +66,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "cloudinary_storage",
+    "cloudinary",
     # 3rd-party
     "rest_framework",
     "crispy_forms",
@@ -197,10 +202,20 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage" if not DEBUG else "django.contrib.staticfiles.storage.StaticFilesStorage"
-
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+STORAGES = {
+    "default": {
+        "BACKEND": DEFAULT_MEDIA_STORAGE,
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if not DEBUG
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        ),
+    },
+}
 
 # --- Default primary key field ---
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

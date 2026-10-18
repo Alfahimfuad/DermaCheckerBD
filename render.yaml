@@ -27,6 +27,8 @@ services:
         sync: false              # set manually; keep this secret
       - key: DATABASE_URL
         sync: false              # paste the Neon PostgreSQL connection string
+      - key: CLOUDINARY_URL
+        sync: false              # required for persistent uploaded images
       - key: GEMINI_API_KEY
         sync: false              # set manually if you want the chatbot live
       - key: GEMINI_MODEL

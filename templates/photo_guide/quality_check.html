@@ -343,10 +343,6 @@
       stageTimers.forEach(clearTimeout);
       stageTimers = [];
       if (runButton) runButton.disabled = false;
-      var label = document.getElementById('runPredictionLabel');
-      if (label) label.textContent = window.DERMA && window.DERMA.t
-        ? window.DERMA.t('pg.run_prediction', 'Run prediction on this image')
-        : 'Run prediction on this image';
     }
 
     function showTransferError(message) {
@@ -402,10 +398,6 @@
           formData.set('image_name', currentImageName());
           formData.append('image', new Blob([bytes], { type: match[1] }), filename);
           runButton.disabled = true;
-          var label = document.getElementById('runPredictionLabel');
-          if (label) label.textContent = window.DERMA && window.DERMA.t
-            ? window.DERMA.t('pg.preparing', 'Preparing image…')
-            : 'Preparing image…';
           if (transferError) transferError.hidden = true;
           startPredictionProgress();
 
