@@ -21,6 +21,15 @@ class MediaStorageSettingsTests(SimpleTestCase):
             CLOUDINARY_MEDIA_STORAGE,
         )
 
+    def test_cloudinary_url_with_invalid_scheme_fails_with_clear_error(self):
+        with self.assertRaisesMessage(
+            ImproperlyConfigured,
+            "CLOUDINARY_URL must start with 'cloudinary://' when set.",
+        ):
+            resolve_media_storage_backend(
+                False, "https://example-cloud.invalid/some/path"
+            )
+
     def test_production_without_cloudinary_fails_instead_of_using_local_disk(self):
         with self.assertRaisesMessage(
             ImproperlyConfigured,
