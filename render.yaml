@@ -1,0 +1,48 @@
+# Render Blueprint for DermaCheckerBD.
+# Create the Neon database first, then set DATABASE_URL in the Render dashboard.
+
+services:
+  - type: web
+    name: dermacheckerbd-web
+    runtime: python
+    plan: free
+    branch: main
+    healthCheckPath: /healthz/
+    buildCommand: |
+      pip install -r requirements.txt &&
+      python manage.py collectstatic --noinput
+    # Render Free does not support pre-deploy commands. Keep one web worker so
+    # migrations and first-time admin setup run serially before the server.
+    startCommand: python manage.py migrate --noinput && python manage.py ensure_render_superuser && gunicorn dermacheckerbd.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        sync: false              # set manually in the dashboard
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false              # set manually; used for one-time superuser creation
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false              # set manually; keep this secret
+      - key: DATABASE_URL
+        sync: false              # paste the Neon PostgreSQL connection string
+      - key: GEMINI_API_KEY
+        sync: false              # set manually if you want the chatbot live
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: GEOAPIFY_API_KEY
+        sync: false              # optional; Nearby Doctors feature
+      - key: ML_MODEL_BACKEND
+        value: api
+      - key: AI_API_URL
+        sync: false              # HTTPS URL of the separately hosted prediction API
+      - key: AI_API_TOKEN
+        sync: false              # optional; only if the prediction API requires it
+      - key: AI_API_TIMEOUT
+        value: "120"
+      - key: ML_MODEL_CLASSES
+        value: akiec,bcc,bkl,df,mel,nv,vasc
+      - key: SIMILAR_CASES_ENABLED
+        value: "False"
+    autoDeployTrigger: commit
