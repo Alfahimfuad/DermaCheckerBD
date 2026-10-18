@@ -11,7 +11,7 @@
   </a>
   <button type="button" class="btn app-btn-primary" id="runPredictionButton"
           data-image-url="{{ prediction_data_url }}"
-          data-customizer-url="{{ customizer_data_url|default:'' }}"
+          data-customizer-url="{% if customizer_data_url != prediction_data_url %}{{ customizer_data_url|default:'' }}{% endif %}"
           data-file-name="{{ uploaded_name }}"
           data-enhanced="{% if enhancement_report and enhancement_report.applied %}true{% else %}false{% endif %}">
     <i data-lucide="zap" aria-hidden="true"></i> <span id="runPredictionLabel" data-i18n="pg.run_prediction">Run prediction on this image</span>

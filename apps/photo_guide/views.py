@@ -125,11 +125,13 @@ def quality_check_view(request):
                         enhanced_data_url = _pil_to_data_url(enhanced_pil)
                         prediction_image = enhanced_pil
                         # Keep automatic enhancement as the default prediction
-                        # image when the user does not customize it.
+                        # image when the user does not customize it. The
+                        # customizer can use the same full-resolution source.
                         prediction_data_url = _pil_to_data_url(
                             prediction_image, max_dim=None, quality=88,
                             max_bytes=MAX_BYTES - 64 * 1024,
                         )
+                        customizer_data_url = prediction_data_url
                     else:
                         customizer_data_url = _pil_to_data_url(
                             pil_image, max_dim=None, quality=88,

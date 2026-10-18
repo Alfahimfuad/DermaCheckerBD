@@ -531,7 +531,10 @@ class PhotoGuideHandoffTests(TestCase):
             html.index('id="qualityImagePreview"'),
             html.index('data-i18n="pg.enhanced"'),
         )
-        self.assertIsNone(response.context["customizer_data_url"])
+        self.assertEqual(
+            response.context["customizer_data_url"],
+            response.context["prediction_data_url"],
+        )
         self.assertIn('data-customizer-url=""', html)
         self.assertLess(
             html.index('data-i18n="pg.enhance_note"'),
@@ -577,6 +580,92 @@ class PhotoGuideHandoffTests(TestCase):
         self.assertContains(response, 'id="qualityCustomizer"')
         self.assertContains(response, 'id="downloadQualityImage"')
         self.assertContains(response, 'id="runPredictionButton"')
+
+    def test_customizer_uses_the_enhanced_full_resolution_image(self):
+        original = make_skin_image(seed=44, size=(640, 480))
+        enhanced = Image.new("RGB", (640, 480), (45, 90, 150))
+        upload = SimpleUploadedFile(
+            "customize-enhanced.jpg",
+            image_to_jpeg_bytes(original),
+            content_type="image/jpeg",
+        )
+        with patch(
+            "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed",
+            return_value=(enhanced, EnhancementReport(applied=True)),
+        ):
+            response = self.client.post("/quality/", {"image": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["customizer_data_url"],
+            response.context["prediction_data_url"],
+        )
+        customizer_image = Image.open(io.BytesIO(base64.b64decode(
+            response.context["customizer_data_url"].split(",", 1)[1]
+        )))
+        self.assertEqual(customizer_image.size, (640, 480))
+        # The prediction source is reused instead of duplicating a large
+        # data URL in the page's customizer attributes.
+        self.assertContains(response, 'data-customizer-url=""')
+
+    def test_quality_score_below_50_shows_upload_a_better_image_warning(self):
+        image = make_skin_image(seed=46, size=(300, 300))
+        upload = SimpleUploadedFile(
+            "low-quality.jpg",
+            image_to_jpeg_bytes(image),
+            content_type="image/jpeg",
+        )
+        low_report = SimpleNamespace(
+            overall_score=49.9,
+            suitable=False,
+            checks=[],
+            suggestions=[],
+        )
+        with (
+            patch(
+                "apps.photo_guide.views.ImageQualityService.assess_pil",
+                return_value=low_report,
+            ),
+            patch(
+                "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed",
+                return_value=(image, EnhancementReport(applied=False)),
+            ),
+        ):
+            response = self.client.post("/quality/", {"image": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response, 'role="alert" data-i18n="pg.low_quality_warning"'
+        )
+        self.assertContains(response, "Please upload a different, higher-quality image.")
+
+    def test_quality_score_of_50_does_not_show_low_quality_warning(self):
+        image = make_skin_image(seed=47, size=(300, 300))
+        upload = SimpleUploadedFile(
+            "threshold-quality.jpg",
+            image_to_jpeg_bytes(image),
+            content_type="image/jpeg",
+        )
+        threshold_report = SimpleNamespace(
+            overall_score=50,
+            suitable=False,
+            checks=[],
+            suggestions=[],
+        )
+        with (
+            patch(
+                "apps.photo_guide.views.ImageQualityService.assess_pil",
+                return_value=threshold_report,
+            ),
+            patch(
+                "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed",
+                return_value=(image, EnhancementReport(applied=False)),
+            ),
+        ):
+            response = self.client.post("/quality/", {"image": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "pg.low_quality_warning")
 
     def test_quality_handoff_exposes_an_editable_image_name(self):
         image = make_skin_image(seed=43, size=(640, 480))
