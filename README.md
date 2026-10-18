@@ -58,7 +58,9 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
-pip install -r requirements.txt
+# For the bundled local Keras model:
+pip install -r requirements-ml.txt
+# For an API-only setup, install requirements.txt instead.
 
 # 4. Configure environment
 cp .env.example .env
@@ -133,6 +135,7 @@ Procfile                 # Render/Heroku-style process file
 render.yaml              # Render Blueprint
 runtime.txt              # Python version pin
 requirements.txt
+requirements-ml.txt          # optional TensorFlow/Keras inference dependencies
 manage.py
 ```
 
@@ -152,14 +155,20 @@ manage.py
 | `LOCAL_DB_USER`            | unset                                            | Local database user; required when `LOCAL_DB_HOST` is set. |
 | `LOCAL_DB_PASSWORD`        | blank                                            | Local database password; keep it in your ignored `.env`. |
 | `LOCAL_DB_SSLMODE`         | `disable`                                        | Local connection SSL mode; use `require` only if configured. |
-| `ML_MODEL_BACKEND`         | `keras`                                          | `keras` / `mock` / `onnx`                            |
+| `ML_MODEL_BACKEND`         | `keras`                                          | `keras` / `mock` / `onnx` / `api`. Render uses `api`. |
 | `ML_MODEL_PATH`            | attached `.keras` model                          | Path to the fine-tuned model file; defaults to `/tmp/dermacheckerbd/resnet50_finetuned_1791994962604.keras` when `MODEL_GDRIVE_URL` is set. |
 | `MODEL_GDRIVE_URL`         | unset                                            | Optional public Google Drive share link. If the model is missing, it downloads at WSGI startup. |
+| `AI_API_URL`               | local URL in development                         | Required in production when `ML_MODEL_BACKEND=api`; set to the HTTPS prediction API URL. |
+| `AI_API_TOKEN`             | unset                                            | Optional bearer token for the prediction API. |
+| `AI_API_TIMEOUT`           | `120` seconds                                    | Per-request timeout for the prediction API. |
 | `ML_MODEL_INPUT_SIZE`      | `224`                                            | Resize dimension used in preprocessing.             |
 | `ML_MODEL_CLASSES`         | `akiec,bcc,bkl,df,mel,nv,vasc`                   | Must match the trained model's output order.        |
 | `ML_MODEL_RESAMPLE`        | `BILINEAR`                                       | Resize filter; matches the supplied training pipeline. |
 | `GEMINI_API_KEY`           | unset                                            | Leave unset to run chatbot in offline mode.         |
 | `GEMINI_MODEL`             | `gemini-2.0-flash`                               | Model name.                                          |
+| `GEOAPIFY_API_KEY`         | unset                                            | Optional key for Nearby Doctors and Hospitals.      |
+| `DJANGO_SUPERUSER_USERNAME`| unset                                            | Set in Render to create the initial admin account.   |
+| `DJANGO_SUPERUSER_PASSWORD`| unset                                            | Set in Render; at least 12 characters.              |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | unset                                          | Optional comma-separated trusted origins. Replit preview origins are allowed automatically in development only. |
 | `CHATBOT_RATE_LIMIT`       | `10/m`                                           | django-ratelimit spec (10 messages/minute/IP).      |
 | `IMG_BLUR_THRESHOLD`       | `100.0`                                          | Laplacian-variance threshold for blur.              |
@@ -171,11 +180,11 @@ manage.py
 ### Render Django admin account
 
 Set `DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` in the Render
-web service environment. The Render start command applies migrations and runs
-`ensure_render_superuser`, which creates the account only when it is missing
-and does not change an existing account's password. The footer's **Admin** link
-opens `/admin/`; only staff users can sign in there. Do not commit the password
-to the repository.
+web service environment. The Render start command runs migrations and
+`ensure_render_superuser`, which creates the account once and never changes an
+existing account's password. Both values are required for the Render Blueprint
+to start. The footer's **Admin** link opens `/admin/`; only staff users can sign
+in there. Do not commit the password to the repository.
 
 ---
 
@@ -233,49 +242,37 @@ Smoke tests (run them with `python scripts/`):
 
 ## Deployment to Render
 
-### Option A — Render Blueprint (recommended)
+### VS Code → GitHub → Render → Neon (Blueprint)
 
-1. Push this repo to GitHub.
-2. In the Render dashboard: **New → Blueprint**, select the repo, and pick
-   `render.yaml`.
-3. Create the Postgres database and web service.
-4. In the web service's environment tab, set:
-   - `DJANGO_SECRET_KEY` — a long random string.
-   - `GEMINI_API_KEY` — optional, for the live chatbot.
-    - `MODEL_GDRIVE_URL` — the model's Google Drive share link, with access set
-      to **Anyone with the link**. Keep `ML_MODEL_BACKEND=keras` to enable the
-      ResNet50 backend; the Blueprint sets this automatically.
-5. After the first deploy, run migrations via the Render **Shell**:
-   ```bash
-   python manage.py migrate
-   python manage.py createsuperuser  # optional
-   ```
+1. In Neon, create a PostgreSQL project and copy its **pooled** connection
+   string. Keep it private.
+2. In VS Code, commit and push this project to the GitHub `main` branch.
+3. In Render, choose **New → Blueprint**, connect the GitHub repository, and
+   select `render.yaml`. The Blueprint creates the web service; it does not
+   create a database on Render.
+4. When Render asks for environment values, set these on the web service:
+   - `DATABASE_URL` — the Neon pooled connection string.
+   - `DJANGO_SECRET_KEY` — a new, long random value (never the development
+     placeholder).
+   - `DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` — your admin
+     login; use a strong password of at least 12 characters.
+   - `AI_API_URL` — the reachable HTTPS URL of your separate prediction API.
+   - `AI_API_TOKEN` — only if that API requires bearer-token authentication.
+   - `GEMINI_API_KEY` — optional; omit it to keep the assistant in offline mode.
+   - `GEOAPIFY_API_KEY` — optional; only needed for Nearby Doctors.
+5. Render deploys from `main` automatically after each push. The site health
+   endpoint is `/healthz/`; Django admin is at `/admin/`.
 
-The model downloads to `/tmp/dermacheckerbd/` when the web process starts.
-Render's filesystem is temporary, so each restart or deploy downloads it again.
-The first startup waits for the download and model load. A successful 200 MB
-download does not guarantee TensorFlow will fit within Render Free's available
-memory; check the service logs and confirm prediction works after deployment.
+The Blueprint sets `ML_MODEL_BACKEND=api`, so this website does not download or
+load TensorFlow/model files. `requirements.txt` contains the web/API dependencies
+only; `requirements-ml.txt` is for local Keras inference.
 
-### Option B — Manual setup
-
-1. **New → PostgreSQL** (free or starter plan). Note the connection string.
-2. **New → Web Service**:
-   - Environment: Python 3.
-   - Build command:
-     ```
-     pip install -r requirements.txt && python manage.py collectstatic --noinput
-     ```
-   - Start command:
-     ```
-     gunicorn dermacheckerbd.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120
-     ```
-   - Health check path: `/healthz/`.
-3. Set the environment variables listed above (especially
-   `DATABASE_URL`, `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, and
-   `MODEL_GDRIVE_URL` with `ML_MODEL_BACKEND=keras` for ResNet50 predictions).
-4. After the first deploy, open the Render **Shell** and run
-   `python manage.py migrate`.
+This Blueprint uses Render Free. Free web services do not support pre-deploy
+commands, so the start command applies migrations and creates the admin before
+starting one Gunicorn worker. These operations are safe to repeat on a single
+instance. Render Free services can sleep when idle; use a paid plan and a
+pre-deploy migration command if you later need always-on service or multiple
+instances.
 
 ### Persistent image storage on Render
 
@@ -305,12 +302,10 @@ STORAGES = {
 
 ## Database migrations on Render
 
-**Do NOT** run `migrate` inside the web service `startCommand` — concurrent
-workers racing to migrate will cause errors. Instead:
-
-- **One-off**: open the Render Shell and run `python manage.py migrate`.
-- **Automated**: schedule a Render Cron job (see `render.yaml`) that runs
-  `python manage.py migrate --noinput` after each deploy.
+The Free-plan Blueprint runs `python manage.py migrate --noinput` before each
+web process starts, with one worker/instance. On a paid Render plan, prefer
+Render's `preDeployCommand` for migrations so database changes finish before
+the new web process starts.
 
 ---
 

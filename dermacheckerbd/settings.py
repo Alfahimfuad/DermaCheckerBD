@@ -11,16 +11,21 @@ from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 # --- Core ---
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "dev-insecure-secret-key-change-me-in-production-please-32chars",
+_configured_secret_key = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+SECRET_KEY = _configured_secret_key or (
+    "dev-insecure-secret-key-change-me-in-production-please-32chars"
 )
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
+if not DEBUG and not _configured_secret_key:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is False."
+    )
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS",
     "localhost,127.0.0.1,0.0.0.0,.onrender.com,.replit.dev",
@@ -118,6 +123,10 @@ ASGI_APPLICATION = "dermacheckerbd.asgi.application"
 # supports a native PostgreSQL installation on a developer's own computer
 # without changing the Replit preview's SQLite default.
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if not DEBUG and not DATABASE_URL.strip():
+    raise ImproperlyConfigured(
+        "DATABASE_URL must be set for production; use the Neon PostgreSQL URL."
+    )
 if DATABASE_URL and not DATABASE_URL.startswith("file:"):
     DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)}
 elif DATABASE_URL.startswith("file:"):
@@ -262,8 +271,12 @@ ML_MODEL_RESAMPLE = os.environ.get("ML_MODEL_RESAMPLE", "BILINEAR")
 # Production: set AI_API_URL to your deployed FastAPI service's public URL.
 AI_API_URL = os.environ.get(
     "AI_API_URL",
-    "http://127.0.0.1:8000",
-)
+    "" if not DEBUG else "http://127.0.0.1:8000",
+).strip()
+if not DEBUG and ML_MODEL_BACKEND.lower() == "api" and not AI_API_URL:
+    raise ImproperlyConfigured(
+        "AI_API_URL must be set when ML_MODEL_BACKEND=api in production."
+    )
 # Optional bearer token if your FastAPI service requires authentication.
 AI_API_TOKEN = os.environ.get("AI_API_TOKEN", "").strip()
 # Per-request timeout (seconds) for the FastAPI /predict call.

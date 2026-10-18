@@ -1,32 +1,19 @@
-# Render Blueprint spec for DermaCheckerBD.
-# Docs: https://render.com/docs/blueprint-spec
-# How to use: in the Render dashboard, choose New > Blueprint, and select this file.
-
-databases:
-  - name: dermacheckerbd-db
-    plan: free            # bump up on production traffic
-    databaseName: dermacheckerbd
-    ipAllowList: []       # only the Render service can reach it via private link
+# Render Blueprint for DermaCheckerBD.
+# Create the Neon database first, then set DATABASE_URL in the Render dashboard.
 
 services:
   - type: web
     name: dermacheckerbd-web
-    env: python
+    runtime: python
     plan: free
     branch: main
     healthCheckPath: /healthz/
     buildCommand: |
       pip install -r requirements.txt &&
       python manage.py collectstatic --noinput
-    # Migrations are NOT run inside the web startCommand. README documents
-    # why: concurrent workers racing to migrate can corrupt schema state.
-    # Migrations run via the dedicated `release` block below, which Render
-    # runs once per deploy *before* the web service starts.
-    startCommand: gunicorn dermacheckerbd.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
-    # Render `release` command runs once per deploy, before any web worker
-    # starts. This is the recommended place for migrate + superuser ensure.
-    # See https://render.com/docs/blueprint-spec#release-command
-    releaseCommand: python manage.py migrate --noinput && python manage.py ensure_render_superuser
+    # Render Free does not support pre-deploy commands. Keep one web worker so
+    # migrations and first-time admin setup run serially before the server.
+    startCommand: python manage.py migrate --noinput && python manage.py ensure_render_superuser && gunicorn dermacheckerbd.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     envVars:
       - key: DJANGO_DEBUG
         value: "False"
@@ -39,53 +26,23 @@ services:
       - key: DJANGO_SUPERUSER_PASSWORD
         sync: false              # set manually; keep this secret
       - key: DATABASE_URL
-        fromDatabase:
-          name: dermacheckerbd-db
-          property: connectionString
+        sync: false              # paste the Neon PostgreSQL connection string
       - key: GEMINI_API_KEY
         sync: false              # set manually if you want the chatbot live
       - key: GEMINI_MODEL
         value: gemini-2.0-flash
+      - key: GEOAPIFY_API_KEY
+        sync: false              # optional; Nearby Doctors feature
       - key: ML_MODEL_BACKEND
-        value: keras
-      - key: MODEL_GDRIVE_URL
-        value: "https://drive.google.com/file/d/1hPR7GhSKccBpKF2n8Ve2-k5i8TnnIuKh/view?usp=drivesdk"
+        value: api
+      - key: AI_API_URL
+        sync: false              # HTTPS URL of the separately hosted prediction API
+      - key: AI_API_TOKEN
+        sync: false              # optional; only if the prediction API requires it
+      - key: AI_API_TIMEOUT
+        value: "120"
       - key: ML_MODEL_CLASSES
         value: akiec,bcc,bkl,df,mel,nv,vasc
       - key: SIMILAR_CASES_ENABLED
         value: "False"
-    autoDeploy: true
-
-  - type: cron
-    name: dermacheckerbd-migrate
-    env: python
-    schedule: "0 3 * * *"        # off-peak; one-off is even better, run manually
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py migrate --noinput
-    envVars:
-      - key: DJANGO_DEBUG
-        value: "False"
-      - key: DJANGO_SECRET_KEY
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: dermacheckerbd-db
-          property: connectionString
-
-  - type: cron
-    name: dermacheckerbd-prune
-    env: python
-    schedule: "30 4 * * *"        # 04:30 UTC daily, after migrate cron
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py prune_old_predictions
-    envVars:
-      - key: DJANGO_DEBUG
-        value: "False"
-      - key: DJANGO_SECRET_KEY
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: dermacheckerbd-db
-          property: connectionString
-      - key: IMAGE_RETENTION_DAYS
-        value: "0"                # set >0 to actually prune; 0 keeps forever
+    autoDeployTrigger: commit

@@ -2,6 +2,7 @@
 .env
 *.env
 !/.env.example
+zipFile.zip
 
 # skills directory (private to dev environment)
 skills/

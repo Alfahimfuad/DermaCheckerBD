@@ -15,9 +15,6 @@ class Command(BaseCommand):
         username = os.environ.get("DJANGO_SUPERUSER_USERNAME", "").strip()
         password = os.environ.get("DJANGO_SUPERUSER_PASSWORD", "")
 
-        if not username and not password:
-            self.stdout.write("Render superuser variables are not set; skipping.")
-            return
         if not username or not password:
             raise CommandError(
                 "Set both DJANGO_SUPERUSER_USERNAME and DJANGO_SUPERUSER_PASSWORD."
