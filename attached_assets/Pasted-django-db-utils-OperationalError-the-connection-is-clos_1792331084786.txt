@@ -1,0 +1,63 @@
+django.db.utils.OperationalError: the connection is closed
+==> Running 'python manage.py migrate --noinput && python manage.py ensure_render_superuser && gunicorn dermacheckerbd.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120'
+Operations to perform:
+  Apply all migrations: accounts, admin, auth, contenttypes, predictor, sessions, tracker
+Running migrations:
+  No migrations to apply.
+Render superuser already exists; leaving it unchanged.
+[2026-10-18 13:16:02 +0000] [58] [INFO] Starting gunicorn 26.2.0
+[2026-10-18 13:16:02 +0000] [58] [INFO] Listening at: http://0.0.0.0:10000 (58)
+[2026-10-18 13:16:02 +0000] [58] [INFO] Using worker: sync
+[2026-10-18 13:16:02 +0000] [90] [INFO] Booting worker with pid: 90
+[2026-10-18 13:16:02 +0000] [58] [INFO] Control socket listening at /opt/render/.gunicorn/gunicorn.ctl
+127.0.0.1 - - [18/Oct/2026:13:16:03 +0000] "HEAD / HTTP/1.1" 301 0 "-" "Go-http-client/1.1"
+[2026-10-18 13:16:03 +0000] [58] [INFO] Handling signal: term
+[2026-10-18 13:16:03 +0000] [90] [INFO] Worker exiting (pid: 90)
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://dermacheckerbd-wwiw.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
+[2026-10-18 13:16:06 +0000] [58] [INFO] Shutting down: Master
+127.0.0.1 - - [18/Oct/2026:13:16:11 +0000] "GET / HTTP/1.1" 200 32699 "-" "Go-http-client/2.0"
+127.0.0.1 - - [18/Oct/2026:13:16:19 +0000] "GET / HTTP/1.1" 200 33302 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/css/main.css HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/images/scan-demo/ISIC_0024415_1791984695578.jpg HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/images/dermacheckerbd-logo.png HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/images/scan-demo/ISIC_0029597_1791984715374.jpg HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/images/scan-demo/ISIC_0031125_1791984751692.jpg HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/images/scan-demo/ISIC_0030893_1791984735809.jpg HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/js/translations.js HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/js/chatbot.js HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/js/main.js HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:20 +0000] "GET /static/images/scan-demo/ISIC_0024458_1791984676098.jpg HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:23 +0000] "GET /quality/ HTTP/1.1" 200 30705 "https://dermacheckerbd-wwiw.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:24 +0000] "GET /static/js/image-upload.js HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:33 +0000] "POST /quality/ HTTP/1.1" 200 463981 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+[2026-10-18 13:16:40,566] INFO apps.common.services.prediction: PredictionService using backend=api
+127.0.0.1 - - [18/Oct/2026:13:16:56 +0000] "POST /predict/ HTTP/1.1" 302 0 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:57 +0000] "GET /predict/result/2A43549E3D17A37D/ HTTP/1.1" 200 34375 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:57 +0000] "GET /predict/result/2A43549E3D17A37D/ HTTP/1.1" 200 34375 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+[2026-10-18 13:16:58,010] WARNING django.request: Not Found: /media/uploads/2A43549E3D17A37D_Screenshot_2026-10-16_200443_2A43549E3D17A37D.jpg
+127.0.0.1 - - [18/Oct/2026:13:16:58 +0000] "GET /media/uploads/2A43549E3D17A37D_Screenshot_2026-10-16_200443_2A43549E3D17A37D.jpg HTTP/1.1" 404 14553 "https://dermacheckerbd-wwiw.onrender.com/predict/result/2A43549E3D17A37D/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:16:58 +0000] "GET /static/css/predictor-result.css HTTP/1.1" 200 0 "https://dermacheckerbd-wwiw.onrender.com/predict/result/2A43549E3D17A37D/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /predict/ HTTP/1.1" 200 27508 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /static/js/main.js HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /static/js/translations.js HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /static/images/dermacheckerbd-logo.png HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /static/js/chatbot.js HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /static/js/image-upload.js HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:00 +0000] "GET /static/css/main.css HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:25 +0000] "POST /predict/ HTTP/1.1" 302 0 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:25 +0000] "GET /predict/result/560253BD7BFF2F08/ HTTP/1.1" 200 35124 "https://dermacheckerbd-wwiw.onrender.com/predict/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+127.0.0.1 - - [18/Oct/2026:13:18:26 +0000] "GET /static/css/predictor-result.css HTTP/1.1" 304 0 "https://dermacheckerbd-wwiw.onrender.com/predict/result/560253BD7BFF2F08/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+[2026-10-18 13:18:26,104] WARNING django.request: Not Found: /media/uploads/560253BD7BFF2F08_Screenshot_2026-10-16_200443_560253BD7BFF2F08.jpg
+127.0.0.1 - - [18/Oct/2026:13:18:26 +0000] "GET /media/uploads/560253BD7BFF2F08_Screenshot_2026-10-16_200443_560253BD7BFF2F08.jpg HTTP/1.1" 404 14553 "https://dermacheckerbd-wwiw.onrender.com/predict/result/560253BD7BFF2F08/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+==> Detected service running on port 10000
+==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+127.0.0.1 - - [18/Oct/2026:13:23:03 +0000] "GET /predict/ HTTP/1.1" 200 27508 "https://dermacheckerbd-wwiw.onrender.com/quality/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+[2026-10-18 13:38:03 +0000] [58] [INFO] Handling signal: term
+[2026-10-18 13:38:03 +0000] [90] [INFO] Worker exiting (pid: 90)
+[2026-10-18 13:38:06 +0000] [58] [INFO] Shutting down: Master
