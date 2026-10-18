@@ -91,11 +91,14 @@
             <div class="stat-label">{{ report.suitable|yesno:"Suitable,Not suitable" }}</div>
           </div>
         </div>
+<<<<<<< HEAD
         {% if report.overall_score < 50 %}
           <div class="medical-disclaimer mb-3" role="alert" data-i18n="pg.low_quality_warning">
             This image's quality score is below 50%. Please upload a different, higher-quality image.
           </div>
         {% endif %}
+=======
+>>>>>>> 7e1b711554afacc4f336cbf39c2ab9e8453f05a5
         <div>
           {% for c in report.checks %}
           <div class="qcheck-item">
@@ -266,10 +269,12 @@
       if (!customized) {
         runButton.dataset.imageUrl = automaticDataUrl || baseDataUrl;
         runButton.disabled = false;
+
         if (previewImage) {
           previewImage.src = automaticDataUrl || baseDataUrl;
           previewImage.style.filter = '';
         }
+
         if (downloadImage) {
           downloadImage.href = baseDataUrl;
         }
@@ -295,10 +300,12 @@
       }
       runButton.disabled = false;
       runButton.dataset.imageUrl = dataUrl;
+
       if (previewImage) {
         previewImage.src = dataUrl;
         previewImage.style.filter = '';
       }
+
       if (downloadImage) {
         downloadImage.href = dataUrl;
       }

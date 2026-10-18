@@ -531,10 +531,14 @@ class PhotoGuideHandoffTests(TestCase):
             html.index('id="qualityImagePreview"'),
             html.index('data-i18n="pg.enhanced"'),
         )
+<<<<<<< HEAD
         self.assertEqual(
             response.context["customizer_data_url"],
             response.context["prediction_data_url"],
         )
+=======
+        self.assertIsNone(response.context["customizer_data_url"])
+>>>>>>> 7e1b711554afacc4f336cbf39c2ab9e8453f05a5
         self.assertIn('data-customizer-url=""', html)
         self.assertLess(
             html.index('data-i18n="pg.enhance_note"'),
@@ -581,6 +585,7 @@ class PhotoGuideHandoffTests(TestCase):
         self.assertContains(response, 'id="downloadQualityImage"')
         self.assertContains(response, 'id="runPredictionButton"')
 
+<<<<<<< HEAD
     def test_customizer_uses_the_enhanced_full_resolution_image(self):
         original = make_skin_image(seed=44, size=(640, 480))
         enhanced = Image.new("RGB", (640, 480), (45, 90, 150))
@@ -667,6 +672,8 @@ class PhotoGuideHandoffTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "pg.low_quality_warning")
 
+=======
+>>>>>>> 7e1b711554afacc4f336cbf39c2ab9e8453f05a5
     def test_quality_handoff_exposes_an_editable_image_name(self):
         image = make_skin_image(seed=43, size=(640, 480))
         upload = SimpleUploadedFile(
