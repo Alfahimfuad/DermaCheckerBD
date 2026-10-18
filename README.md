@@ -149,7 +149,7 @@ manage.py
 | `DJANGO_SECRET_KEY`        | `dev-insecure-...`                               | Generate a long random string for production.       |
 | `DJANGO_ALLOWED_HOSTS`     | `localhost,127.0.0.1,...`                        | Comma-separated. Render domain is auto-added.       |
 | `DATABASE_URL`             | unset                                            | Hosted PostgreSQL connection string; SSL is required. |
-| `CLOUDINARY_URL`           | unset locally                                    | Required when `DJANGO_DEBUG=False`; Cloudinary credentials URL for uploaded images. |
+| `CLOUDINARY_URL`           | unset locally                                    | Required when `DJANGO_DEBUG=False`; use `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`. |
 | `LOCAL_DB_HOST`            | unset                                            | Set to `127.0.0.1` to use PostgreSQL installed on your PC. |
 | `LOCAL_DB_PORT`            | `5432`                                           | Local PostgreSQL port.                               |
 | `LOCAL_DB_NAME`            | unset                                            | Local database name; required when `LOCAL_DB_HOST` is set. |
@@ -278,10 +278,15 @@ instances.
 ### Persistent image storage in production
 
 Production requires a `CLOUDINARY_URL` deployment secret and uses Cloudinary
-for uploaded images. If `DJANGO_DEBUG=False` and this value is missing, Django
-fails during startup rather than silently saving uploads to the ephemeral local
-filesystem. Local development continues to use `MEDIA_ROOT` when the URL is
-unset. Never commit the Cloudinary URL to source control.
+for uploaded images. Set its value to the full URL in this form:
+`cloudinary://API_KEY:API_SECRET@CLOUD_NAME`. In Render, enter only the URL as
+the secret value—do not include `CLOUDINARY_URL=` or wrap it in quotes.
+
+The URL must use the `cloudinary://` scheme. A missing URL or one with a
+different scheme causes Django to stop during startup instead of silently
+saving uploads to the ephemeral local filesystem. Local development continues
+to use `MEDIA_ROOT` when the URL is unset. Never commit or share the Cloudinary
+URL.
 
 ---
 
