@@ -294,6 +294,58 @@ class GeminiServiceFailureTests(TestCase):
         self.assertEqual(client.models.generate_content.call_count, 2)
         sleep.assert_called_once_with(0.75)
 
+    def test_retries_output_token_limited_reply_with_larger_budget(self):
+        client = Mock()
+        client.models.generate_content.side_effect = [
+            SimpleNamespace(
+                text="Partial reply",
+                candidates=[SimpleNamespace(finish_reason="MAX_TOKENS")],
+            ),
+            SimpleNamespace(
+                text="Complete reply",
+                candidates=[SimpleNamespace(finish_reason="STOP")],
+            ),
+        ]
+
+        with patch.object(GeminiService, "_ensure_client", return_value=client):
+            reply = GeminiService.chat(
+                history=[],
+                user_message="Explain the app's seven model classes.",
+            )
+
+        self.assertEqual(reply, "Complete reply")
+        self.assertEqual(client.models.generate_content.call_count, 2)
+        configs = [
+            call.kwargs["config"]
+            for call in client.models.generate_content.call_args_list
+        ]
+        self.assertEqual(configs[0].max_output_tokens, 1200)
+        self.assertEqual(configs[1].max_output_tokens, 2400)
+
+    def test_does_not_return_partial_text_if_larger_budget_is_still_exhausted(self):
+        client = Mock()
+        client.models.generate_content.side_effect = [
+            SimpleNamespace(
+                text="অর্ধেক উত্তর",
+                candidates=[SimpleNamespace(finish_reason="MAX_TOKENS")],
+            ),
+            SimpleNamespace(
+                text="আরও অর্ধেক উত্তর",
+                candidates=[SimpleNamespace(finish_reason="MAX_TOKENS")],
+            ),
+        ]
+
+        with patch.object(GeminiService, "_ensure_client", return_value=client):
+            reply = GeminiService.chat(
+                history=[],
+                user_message="ব্যাখ্যা করুন",
+                language="bn",
+            )
+
+        self.assertIn("উত্তরটি সম্পূর্ণ তৈরি করা যায়নি", reply)
+        self.assertNotIn("অর্ধেক উত্তর", reply)
+        self.assertEqual(client.models.generate_content.call_count, 2)
+
     def test_dashboard_questions_keep_personalized_fallback_during_503(self):
         client = Mock()
         client.models.generate_content.side_effect = [

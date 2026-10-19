@@ -121,6 +121,17 @@ GEMINI_UNAVAILABLE_RESPONSES = {
     ),
 }
 
+GEMINI_INCOMPLETE_RESPONSES = {
+    "en": (
+        "I couldn't complete that reply. Please ask a shorter question or split it "
+        "into smaller questions."
+    ),
+    "bn": (
+        "উত্তরটি সম্পূর্ণ তৈরি করা যায়নি। অনুগ্রহ করে প্রশ্নটি সংক্ষেপে লিখুন "
+        "অথবা কয়েকটি ছোট প্রশ্নে ভাগ করুন।"
+    ),
+}
+
 TRANSIENT_GEMINI_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
@@ -145,6 +156,20 @@ def _is_transient_gemini_error(error):
             "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED", "INTERNAL",
         )
     )
+
+
+def _hit_output_token_limit(response):
+    """Return whether Gemini explicitly reports that it cut off output tokens."""
+    try:
+        candidates = response.candidates
+        if not candidates:
+            return False
+        finish_reason = getattr(candidates[0], "finish_reason", None)
+    except Exception:
+        return False
+
+    reason = getattr(finish_reason, "name", finish_reason)
+    return str(reason).upper().endswith("MAX_TOKENS")
 
 
 @dataclass
@@ -269,7 +294,7 @@ Signed-in user access scope:
             config = types.GenerateContentConfig(
                 system_instruction=system,
                 temperature=0.4,
-                max_output_tokens=600,
+                max_output_tokens=1200,
             )
             for attempt in range(2):
                 try:
@@ -285,6 +310,27 @@ Signed-in user access scope:
                         time.sleep(0.75)
                         continue
                     raise
+
+            if _hit_output_token_limit(response):
+                logger.warning(
+                    "Gemini reply reached its output token limit; retrying once "
+                    "with a larger response budget."
+                )
+                retry_config = types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=0.4,
+                    max_output_tokens=2400,
+                )
+                response = client.models.generate_content(
+                    model=cls._model,
+                    contents=contents,
+                    config=retry_config,
+                )
+                if _hit_output_token_limit(response):
+                    logger.warning(
+                        "Gemini reply was still incomplete after the larger-budget retry."
+                    )
+                    return GEMINI_INCOMPLETE_RESPONSES[language]
 
             text = getattr(response, "text", None) or ""
             if not text:

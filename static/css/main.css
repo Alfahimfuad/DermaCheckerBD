@@ -1028,6 +1028,7 @@ a:hover { color: var(--primary); }
 
 .chatbot-messages {
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 1rem;
   background: var(--bg-soft);
@@ -1035,14 +1036,17 @@ a:hover { color: var(--primary); }
   flex-direction: column;
   gap: 0.75rem;
 }
-.chatbot-msg { display: flex; }
+.chatbot-msg { display: flex; flex: 0 0 auto; min-width: 0; }
 .chatbot-msg.user { justify-content: flex-end; }
 .chatbot-msg-bubble {
   max-width: 80%;
+  min-width: 0;
   padding: 0.6rem 0.85rem;
   border-radius: 14px;
   font-size: 0.88rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .chatbot-msg-bot .chatbot-msg-bubble {
   background: white;
