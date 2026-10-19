@@ -268,6 +268,39 @@ class GeminiServiceFailureTests(TestCase):
     def tearDown(self):
         GeminiService.reset()
 
+    def test_project_authorship_has_exact_answer_without_calling_gemini(self):
+        client = Mock()
+
+        with patch.object(
+            GeminiService, "_ensure_client", return_value=client
+        ) as ensure_client:
+            reply = GeminiService.chat(
+                history=[],
+                user_message="Who developed DermaCheckerBD?",
+                language="en",
+            )
+
+        self.assertEqual(
+            reply,
+            "DermaCheckerBD was developed by <strong>AL Fahim Fuad and his team</strong> "
+            "as a <strong>CSE Capstone Project at East West University (EWU)</strong>.",
+        )
+        ensure_client.assert_not_called()
+        client.models.generate_content.assert_not_called()
+
+    def test_project_authorship_answer_is_available_in_bengali(self):
+        reply = GeminiService.chat(
+            history=[],
+            user_message="এই প্রকল্প কারা তৈরি করেছে?",
+            language="bn",
+        )
+
+        self.assertEqual(
+            reply,
+            "DermaCheckerBD তৈরি করেছেন <strong>AL Fahim Fuad ও তাঁর দল</strong>, "
+            "<strong>East West University (EWU)-এর CSE Capstone Project</strong> হিসেবে।",
+        )
+
     @staticmethod
     def overloaded_error():
         error = RuntimeError("503 UNAVAILABLE: temporarily overloaded")

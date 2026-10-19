@@ -1013,6 +1013,23 @@ class ChatbotEndpointTests(TestCase):
         data = r.json()
         self.assertIn("reply", data)
 
+    def test_project_authorship_question_returns_fixed_attribution(self):
+        response = self.client.post(
+            "/chatbot/message/",
+            data=json.dumps({
+                "message": "Who developed DermaCheckerBD?",
+                "language": "en",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["reply"],
+            "DermaCheckerBD was developed by <strong>AL Fahim Fuad and his team</strong> "
+            "as a <strong>CSE Capstone Project at East West University (EWU)</strong>.",
+        )
+
     def test_replit_preview_origin_is_accepted_for_chatbot_post(self):
         c = Client(enforce_csrf_checks=True)
         c.get("/")
