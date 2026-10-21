@@ -290,6 +290,10 @@ AI_API_URL = os.environ.get(
     "" if not DEBUG else "http://127.0.0.1:8000",
 ).strip()
 AI_SKIN_API_URL = os.environ.get("AI_SKIN_API_URL", "").strip()
+AI_SKIN_API_PATH = (
+    os.environ.get("AI_SKIN_API_PATH", "/api/check-skin").strip()
+    or "/api/check-skin"
+)
 AI_SKIN_API_FILE_FIELD = os.environ.get(
     "AI_SKIN_API_FILE_FIELD", "file"
 ).strip() or "file"

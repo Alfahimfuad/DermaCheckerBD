@@ -34,6 +34,7 @@ from __future__ import annotations
 import logging
 import math
 from typing import Any, Dict
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from django.conf import settings
@@ -106,6 +107,31 @@ def _skin_class_from_response(payload: Any) -> bool:
     )
 
 
+def _resolve_skin_api_endpoint() -> str:
+    """Resolve a skin API base URL to its configured POST endpoint.
+
+    The skin-gate service exposes POST /api/check-skin. Accepting a tunnel
+    origin here is useful for Render configurations, while preserving an
+    explicitly configured endpoint path for other deployments.
+    """
+    endpoint = getattr(settings, "AI_SKIN_API_URL", "").strip()
+    if not endpoint:
+        return ""
+
+    parts = urlsplit(endpoint)
+    if parts.path in ("", "/"):
+        api_path = (
+            getattr(settings, "AI_SKIN_API_PATH", "/api/check-skin").strip()
+            or "/api/check-skin"
+        )
+        if not api_path.startswith("/"):
+            api_path = f"/{api_path}"
+        endpoint = urlunsplit(
+            (parts.scheme, parts.netloc, api_path, parts.query, parts.fragment)
+        )
+    return endpoint
+
+
 def validate_skin_image(
     image_bytes: bytes,
     filename: str = "skin_image.jpg",
@@ -113,12 +139,12 @@ def validate_skin_image(
 ) -> None:
     """Call the separate Skin/Non-Skin API before lesion prediction.
 
-    ``AI_SKIN_API_URL`` is the complete validation endpoint URL. It is
-    intentionally separate from ``AI_API_URL``, which is the base URL for the
-    seven-class lesion API. Both APIs may share the optional bearer token and
-    timeout.
+    A root ``AI_SKIN_API_URL`` is resolved to ``AI_SKIN_API_PATH`` (the
+    skin-gate API's default route is ``/api/check-skin``). An explicit endpoint
+    path is used as configured. This API remains separate from ``AI_API_URL``,
+    the seven-class lesion API.
     """
-    endpoint = getattr(settings, "AI_SKIN_API_URL", "").strip()
+    endpoint = _resolve_skin_api_endpoint()
     if not endpoint:
         raise PredictionError("The skin validation service is not configured.")
 

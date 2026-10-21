@@ -160,7 +160,8 @@ manage.py
 | `ML_MODEL_PATH`            | attached `.keras` model                          | Path to the fine-tuned model file; defaults to `/tmp/dermacheckerbd/resnet50_finetuned_1791994962604.keras` when `MODEL_GDRIVE_URL` is set. |
 | `MODEL_GDRIVE_URL`         | unset                                            | Optional public Google Drive share link. If the model is missing, it downloads at WSGI startup. |
 | `AI_API_URL`               | local URL in development                         | Base URL for the seven-class API; Django sends `POST {AI_API_URL}/predict` with multipart field `file`. Required in production when `ML_MODEL_BACKEND=api`. |
-| `AI_SKIN_API_URL`          | unset                                            | Complete endpoint URL for the separate skin/non-skin API. Django sends the original upload to this URL before lesion classification. Required in production when `ML_MODEL_BACKEND=api`. |
+| `AI_SKIN_API_URL`          | unset                                            | Base/tunnel URL or full endpoint for the separate skin/non-skin API. A root URL gets `AI_SKIN_API_PATH` appended; an explicit path is preserved. Required in production when `ML_MODEL_BACKEND=api`. |
+| `AI_SKIN_API_PATH`         | `/api/check-skin`                                | POST route appended only when `AI_SKIN_API_URL` is a root URL. |
 | `AI_SKIN_API_FILE_FIELD`   | `file`                                           | Multipart field name expected by the skin/non-skin API. |
 | `AI_API_TOKEN`             | unset                                            | Optional bearer token for the seven-class API. Store it as a Render environment variable. |
 | `AI_SKIN_API_TOKEN`        | `AI_API_TOKEN`                                   | Optional bearer token for the skin/non-skin API; falls back to `AI_API_TOKEN`. |
@@ -261,7 +262,8 @@ Smoke tests (run them with `python scripts/`):
    - `DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` — your admin
      login; use a strong password of at least 12 characters.
    - `AI_API_URL` — the reachable HTTPS base URL of the seven-class API.
-   - `AI_SKIN_API_URL` — the complete HTTPS endpoint for the skin/non-skin API.
+   - `AI_SKIN_API_URL` — the HTTPS tunnel/base URL or full endpoint for the skin/non-skin API. A root URL uses `/api/check-skin`.
+   - `AI_SKIN_API_PATH` — defaults to `/api/check-skin`; only change it if the API exposes a different route.
    - `AI_SKIN_API_FILE_FIELD` — the multipart upload field expected by that API (defaults to `file`).
    - `AI_API_TOKEN` — only if the seven-class API requires bearer-token authentication.
    - `AI_SKIN_API_TOKEN` — only if the skin/non-skin API needs a different token; otherwise it falls back to `AI_API_TOKEN`.

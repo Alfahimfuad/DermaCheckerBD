@@ -19,6 +19,7 @@ from apps.common.services.prediction import (
 @override_settings(
     AI_API_URL="https://prediction.example.test",
     AI_SKIN_API_URL="https://skin.example.test/v2/classify",
+    AI_SKIN_API_PATH="/api/check-skin",
     AI_SKIN_API_FILE_FIELD="image",
     AI_API_TOKEN="test-token",
     AI_SKIN_API_TOKEN="skin-test-token",
@@ -48,6 +49,23 @@ class SkinValidationApiTests(SimpleTestCase):
             kwargs["headers"], {"Authorization": "Bearer skin-test-token"}
         )
         self.assertEqual(kwargs["timeout"], 17)
+
+    @patch("apps.common.services.ai_api.requests.post")
+    def test_root_tunnel_url_resolves_to_skin_gate_route(self, post):
+        response = Mock()
+        response.json.return_value = {"is_skin": True}
+        post.return_value = response
+
+        with override_settings(
+            AI_SKIN_API_URL="https://skin.example.test/",
+            AI_SKIN_API_PATH="/api/check-skin",
+            AI_SKIN_API_FILE_FIELD="file",
+        ):
+            validate_skin_image(b"image-bytes")
+
+        args, kwargs = post.call_args
+        self.assertEqual(args[0], "https://skin.example.test/api/check-skin")
+        self.assertIn("file", kwargs["files"])
 
     @patch("apps.common.services.ai_api.requests.post")
     def test_missing_skin_endpoint_fails_without_calling_another_api(self, post):
