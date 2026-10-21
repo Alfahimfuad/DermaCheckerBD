@@ -1,3 +1,4 @@
+
 # Render Blueprint for DermaCheckerBD.
 # Create the Neon database first, then set DATABASE_URL in the Render dashboard.
 
@@ -8,43 +9,78 @@ services:
     plan: free
     branch: main
     healthCheckPath: /healthz/
+
     buildCommand: |
       pip install -r requirements.txt &&
       python manage.py collectstatic --noinput
-    # Render Free does not support pre-deploy commands. Keep one web worker so
-    # migrations and first-time admin setup run serially before the server.
+
+    # Run migrations and ensure the admin user before starting Gunicorn.
+    # One worker helps keep startup operations serial.
     startCommand: python manage.py migrate --noinput && python manage.py ensure_render_superuser && gunicorn dermacheckerbd.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+
     envVars:
+      # Django Configuration
       - key: DJANGO_DEBUG
         value: "False"
+
       - key: DJANGO_SECRET_KEY
-        sync: false              # set manually in the dashboard
+        sync: false
+
       - key: DJANGO_ALLOWED_HOSTS
         value: ".onrender.com"
+
+      # Django Superuser
       - key: DJANGO_SUPERUSER_USERNAME
-        sync: false              # set manually; used for one-time superuser creation
+        sync: false
+
       - key: DJANGO_SUPERUSER_PASSWORD
-        sync: false              # set manually; keep this secret
+        sync: false
+
+      # Neon PostgreSQL Database
       - key: DATABASE_URL
-        sync: false              # paste the Neon PostgreSQL connection string
+        sync: false
+
+      # Persistent Image Storage
       - key: CLOUDINARY_URL
-        sync: false              # required for persistent uploaded images
+        sync: false
+
+      # Gemini Chatbot
       - key: GEMINI_API_KEY
-        sync: false              # set manually if you want the chatbot live
+        sync: false
+
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-3.0-flash
+
+      # Nearby Doctors (Optional)
       - key: GEOAPIFY_API_KEY
-        sync: false              # optional; Nearby Doctors feature
+        sync: false
+
+      # ML API Configuration
       - key: ML_MODEL_BACKEND
         value: api
+
+      # API 1: Seven-Class Skin Disease Prediction
       - key: AI_API_URL
-        sync: false              # HTTPS URL of the separately hosted prediction API
+        sync: false
+
+      # API 2: Skin vs Non-Skin Validation
+      - key: AI_SKIN_API_URL
+        sync: false
+
+      # API Authentication (if required)
       - key: AI_API_TOKEN
-        sync: false              # optional; only if the prediction API requires it
+        sync: false
+
+      # Request Timeout
       - key: AI_API_TIMEOUT
         value: "120"
+
+      # Seven-Class Skin Disease Model Labels
       - key: ML_MODEL_CLASSES
-        value: akiec,bcc,bkl,df,mel,nv,vasc
+        value: "akiec,bcc,bkl,df,mel,nv,vasc"
+
+      # Similar Cases Feature
       - key: SIMILAR_CASES_ENABLED
         value: "False"
+
     autoDeployTrigger: commit
