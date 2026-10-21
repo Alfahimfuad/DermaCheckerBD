@@ -307,7 +307,7 @@ class UploadAndPredictionTests(TestCase):
             response = self.c.post("/predict/", {"image": upload})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "classified as non-skin")
+        self.assertContains(response, "does not appear to contain skin")
         lesion_predict.assert_not_called()
         self.assertFalse(PredictionRecord.objects.filter(user=self.user).exists())
 
@@ -417,6 +417,15 @@ class UploadAndPredictionTests(TestCase):
 class PhotoGuidePredictionHandoffTests(TestCase):
     def setUp(self):
         PredictionService.reset()
+        # Both pages gate uploads on validate_skin_image — patch BOTH the
+        # photo_guide view and the predictor view so the end-to-end
+        # Photo Guide -> Prediction handoff works without making real HTTP
+        # calls to the skin classifier.
+        self.photo_guide_skin_patcher = patch(
+            "apps.photo_guide.views.validate_skin_image"
+        )
+        self.photo_guide_skin_patcher.start()
+        self.addCleanup(self.photo_guide_skin_patcher.stop)
         self.skin_validation_patcher = patch(
             "apps.predictor.views.validate_skin_image"
         )
@@ -537,6 +546,54 @@ class TrackerPrivacyTests(TestCase):
 
 
 class PhotoGuideHandoffTests(TestCase):
+    def setUp(self):
+        # Photo Guide now gates every upload through validate_skin_image
+        # before running the quality check. Patch it as a no-op so the
+        # downstream quality / enhancement / handoff code path is exercised
+        # without making a real HTTP call to the skin classifier.
+        self.skin_validation_patcher = patch(
+            "apps.photo_guide.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
+
+    def test_non_skin_upload_is_rejected_before_quality_check(self):
+        """Smart Photo Guide must stop a non-skin image before the quality
+        check, the enhancement preview, or any prediction handoff runs."""
+        from apps.common.services.ai_api import NonSkinImageError
+
+        image = make_skin_image(seed=72, size=(300, 300))
+        upload = SimpleUploadedFile(
+            "landscape.jpg",
+            image_to_jpeg_bytes(image),
+            content_type="image/jpeg",
+        )
+        with (
+            patch(
+                "apps.photo_guide.views.validate_skin_image",
+                side_effect=NonSkinImageError,
+            ),
+            patch(
+                "apps.photo_guide.views.ImageQualityService.assess_pil"
+            ) as quality_check,
+            patch(
+                "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed"
+            ) as enhance,
+        ):
+            response = self.client.post("/quality/", {"image": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "does not appear to contain skin")
+        # Quality + enhancement must never run for a non-skin image.
+        quality_check.assert_not_called()
+        enhance.assert_not_called()
+        # The Run Prediction handoff button must not be rendered as a
+        # clickable element. The template's <script> block keeps a JS
+        # reference to the element ID regardless of whether it is in the
+        # DOM, so we check for the actual <button id="runPredictionButton">
+        # tag rather than the bare ID string.
+        self.assertNotContains(response, 'id="runPredictionButton"')
+
     def test_enhanced_preview_is_handed_to_prediction_as_the_uploaded_file(self):
         original = make_skin_image(seed=41, size=(300, 300))
         enhanced = Image.new("RGB", (300, 300), (45, 90, 150))

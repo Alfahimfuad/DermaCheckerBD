@@ -137,8 +137,8 @@ def _handle_upload(request):
         return render(request, "predictor/upload.html", {
             "form": form, "classes": PredictionService.class_metadata(),
             "error": (
-                "This image was classified as non-skin. Please upload a clear "
-                "photo of a skin lesion to continue."
+                "Please upload a skin image only. The uploaded image does "
+                "not appear to contain skin."
             ),
         })
     except PredictionError:

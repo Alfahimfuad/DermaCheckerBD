@@ -297,6 +297,14 @@ AI_API_TOKEN = os.environ.get("AI_API_TOKEN", "").strip()
 # Per-request timeout (seconds) for the FastAPI /predict call.
 AI_API_TIMEOUT = int(os.environ.get("AI_API_TIMEOUT", "120"))
 
+# Skin vs Non-Skin validation API (separate from the lesion prediction API).
+# Every uploaded image — on both the Smart Photo Guide and the Skin Image
+# Prediction pages — is first sent here. The image is forwarded to the
+# lesion classifier ONLY if this service explicitly classifies it as Skin.
+# If unset, the prediction API's AI_API_URL is reused as a fallback so that
+# legacy single-service deployments keep working unchanged.
+AI_SKIN_API_URL = os.environ.get("AI_SKIN_API_URL", "").strip()
+
 # HAM10000 class -> full medical name mapping (used for display)
 HAM10000_CLASS_NAMES = {
     "akiec": "Actinic Keratoses / Bowen's Disease",

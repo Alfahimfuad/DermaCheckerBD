@@ -113,14 +113,23 @@ def validate_skin_image(
 ) -> None:
     """Call the separate Skin/Non-Skin API before lesion prediction.
 
-    The existing AI_API_URL, bearer token, and timeout settings are reused;
-    the lesion classifier's /predict endpoint and response contract are not
+    Uses the dedicated ``AI_SKIN_API_URL`` setting so the skin classifier
+    can run on a different host than the lesion predictor. When that setting
+    is empty (legacy deployments), it transparently falls back to
+    ``AI_API_URL`` so a single-service setup keeps working.
+
+    The lesion classifier's bearer token and timeout settings are reused;
+    the predictor's ``/predict`` endpoint and response contract are not
     changed.
     """
-    if not getattr(settings, "AI_API_URL", "").strip():
+    skin_api_url = getattr(settings, "AI_SKIN_API_URL", "").strip()
+    if not skin_api_url:
+        # Legacy single-service fallback: reuse the prediction API URL.
+        skin_api_url = getattr(settings, "AI_API_URL", "").strip()
+    if not skin_api_url:
         raise PredictionError("The skin validation service is not configured.")
 
-    url = f"{settings.AI_API_URL.rstrip('/')}{SKIN_NON_SKIN_ENDPOINT}"
+    url = f"{skin_api_url.rstrip('/')}{SKIN_NON_SKIN_ENDPOINT}"
     headers = {}
     if getattr(settings, "AI_API_TOKEN", "").strip():
         headers["Authorization"] = f"Bearer {settings.AI_API_TOKEN.strip()}"

@@ -162,6 +162,7 @@ manage.py
 | `AI_API_URL`               | local URL in development                         | Required in production when `ML_MODEL_BACKEND=api`; set to the HTTPS prediction API URL. |
 | `AI_API_TOKEN`             | unset                                            | Optional bearer token for the prediction API. |
 | `AI_API_TIMEOUT`           | `120` seconds                                    | Per-request timeout for the prediction API. |
+| `AI_SKIN_API_URL`          | unset (falls back to `AI_API_URL`)               | Dedicated Skin/Non-Skin validation API URL. Every upload — on both the Smart Photo Guide and the Skin Image Prediction pages — is sent here first; non-skin images are never forwarded to the lesion classifier. |
 | `ML_MODEL_INPUT_SIZE`      | `224`                                            | Resize dimension used in preprocessing.             |
 | `ML_MODEL_CLASSES`         | `akiec,bcc,bkl,df,mel,nv,vasc`                   | Must match the trained model's output order.        |
 | `ML_MODEL_RESAMPLE`        | `BILINEAR`                                       | Resize filter; matches the supplied training pipeline. |
