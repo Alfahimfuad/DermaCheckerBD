@@ -31,6 +31,11 @@ User = get_user_model()
 class MultiImageComparisonViewTests(TestCase):
     def setUp(self):
         PredictionService.reset()
+        self.skin_validation_patcher = patch(
+            "apps.multi_image.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
 
     @staticmethod
     def upload(seed, name):
@@ -79,6 +84,24 @@ class MultiImageComparisonViewTests(TestCase):
         self.assertIsNone(response.context["report"])
         self.assertContains(response, "Could not compare images: Prediction failed for image 1.")
         self.assertNotContains(response, "private model path")
+
+    def test_non_skin_image_is_rejected_before_multi_image_prediction(self):
+        from apps.common.services.ai_api import NonSkinImageError
+
+        with patch(
+            "apps.multi_image.views.validate_skin_image",
+            side_effect=NonSkinImageError,
+        ), patch("apps.multi_image.views.MultiImageService.compare_pil") as compare:
+            response = self.client.post("/multi/", {
+                "images": [
+                    self.upload(73, "first.jpg"),
+                    self.upload(74, "second.jpg"),
+                ],
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "classified as non-skin")
+        compare.assert_not_called()
 
 
 class HowItWorksPageTests(TestCase):
@@ -260,7 +283,7 @@ class UploadAndPredictionTests(TestCase):
         self.skin_validation_patcher = patch(
             "apps.predictor.views.validate_skin_image"
         )
-        self.skin_validation_patcher.start()
+        self.skin_validator = self.skin_validation_patcher.start()
         self.addCleanup(self.skin_validation_patcher.stop)
         self.user = User.objects.create_user(username="bob", password="Pass!2024")
         self.c = Client()
@@ -282,6 +305,7 @@ class UploadAndPredictionTests(TestCase):
         })
         self.assertEqual(r.status_code, 302)
         self.assertIn("/predict/result/", r["Location"])
+        self.skin_validator.assert_called_once()
 
         # Verify record was saved
         self.assertTrue(PredictionRecord.objects.filter(user=self.user).exists())
@@ -772,6 +796,11 @@ class PhotoGuideHandoffTests(TestCase):
 @override_settings(ML_MODEL_BACKEND="mock")
 class ReliabilityPageTests(TestCase):
     def setUp(self):
+        self.skin_validation_patcher = patch(
+            "apps.reliability.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
         self.owner = User.objects.create_user(username="reliability-owner")
         self.client = Client()
         self.client.force_login(self.owner)
@@ -818,6 +847,23 @@ class ReliabilityPageTests(TestCase):
         assess.assert_called_once()
         self.assertContains(response, "Original prediction")
         self.assertContains(response, 'id="reliabilitySubmit"')
+
+    def test_reliability_page_rejects_non_skin_before_prediction(self):
+        from apps.common.services.ai_api import NonSkinImageError
+
+        with patch(
+            "apps.reliability.views.validate_skin_image",
+            side_effect=NonSkinImageError,
+        ), patch(
+            "apps.reliability.views.ReliabilityService.assess_pil"
+        ) as assess:
+            response = self.client.get(
+                "/reliability/?reference_id=RELTEST01"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "classified as non-skin")
+        assess.assert_not_called()
 
     def test_reliability_page_rejects_missing_upload(self):
         response = self.client.post("/reliability/", {})

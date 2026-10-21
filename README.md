@@ -159,9 +159,12 @@ manage.py
 | `ML_MODEL_BACKEND`         | `keras`                                          | `keras` / `mock` / `onnx` / `api`. Render uses `api`. |
 | `ML_MODEL_PATH`            | attached `.keras` model                          | Path to the fine-tuned model file; defaults to `/tmp/dermacheckerbd/resnet50_finetuned_1791994962604.keras` when `MODEL_GDRIVE_URL` is set. |
 | `MODEL_GDRIVE_URL`         | unset                                            | Optional public Google Drive share link. If the model is missing, it downloads at WSGI startup. |
-| `AI_API_URL`               | local URL in development                         | Required in production when `ML_MODEL_BACKEND=api`; set to the HTTPS prediction API URL. |
-| `AI_API_TOKEN`             | unset                                            | Optional bearer token for the prediction API. |
-| `AI_API_TIMEOUT`           | `120` seconds                                    | Per-request timeout for the prediction API. |
+| `AI_API_URL`               | local URL in development                         | Base URL for the seven-class API; Django sends `POST {AI_API_URL}/predict` with multipart field `file`. Required in production when `ML_MODEL_BACKEND=api`. |
+| `AI_SKIN_API_URL`          | unset                                            | Complete endpoint URL for the separate skin/non-skin API. Django sends the original upload to this URL before lesion classification. Required in production when `ML_MODEL_BACKEND=api`. |
+| `AI_SKIN_API_FILE_FIELD`   | `file`                                           | Multipart field name expected by the skin/non-skin API. |
+| `AI_API_TOKEN`             | unset                                            | Optional bearer token for the seven-class API. Store it as a Render environment variable. |
+| `AI_SKIN_API_TOKEN`        | `AI_API_TOKEN`                                   | Optional bearer token for the skin/non-skin API; falls back to `AI_API_TOKEN`. |
+| `AI_API_TIMEOUT`           | `120` seconds                                    | Per-request timeout for both ML APIs. |
 | `ML_MODEL_INPUT_SIZE`      | `224`                                            | Resize dimension used in preprocessing.             |
 | `ML_MODEL_CLASSES`         | `akiec,bcc,bkl,df,mel,nv,vasc`                   | Must match the trained model's output order.        |
 | `ML_MODEL_RESAMPLE`        | `BILINEAR`                                       | Resize filter; matches the supplied training pipeline. |
@@ -257,8 +260,11 @@ Smoke tests (run them with `python scripts/`):
      placeholder).
    - `DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` — your admin
      login; use a strong password of at least 12 characters.
-   - `AI_API_URL` — the reachable HTTPS URL of your separate prediction API.
-   - `AI_API_TOKEN` — only if that API requires bearer-token authentication.
+   - `AI_API_URL` — the reachable HTTPS base URL of the seven-class API.
+   - `AI_SKIN_API_URL` — the complete HTTPS endpoint for the skin/non-skin API.
+   - `AI_SKIN_API_FILE_FIELD` — the multipart upload field expected by that API (defaults to `file`).
+   - `AI_API_TOKEN` — only if the seven-class API requires bearer-token authentication.
+   - `AI_SKIN_API_TOKEN` — only if the skin/non-skin API needs a different token; otherwise it falls back to `AI_API_TOKEN`.
    - `GEMINI_API_KEY` — optional; omit it to keep the assistant in offline mode.
    - `GEOAPIFY_API_KEY` — optional; only needed for Nearby Doctors.
 5. Render deploys from `main` automatically after each push. The site health

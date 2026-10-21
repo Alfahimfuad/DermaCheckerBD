@@ -281,20 +281,35 @@ ML_MODEL_CLASSES = os.environ.get(
 ).split(",")
 ML_MODEL_RESAMPLE = os.environ.get("ML_MODEL_RESAMPLE", "BILINEAR")
 
-# FastAPI prediction endpoint (used when ML_MODEL_BACKEND=api).
+# Seven-class FastAPI prediction API (used when ML_MODEL_BACKEND=api).
 # Local dev:  http://127.0.0.1:8000  (FastAPI on port 8000, Django on 8001+)
-# Production: set AI_API_URL to your deployed FastAPI service's public URL.
+# Production: set AI_API_URL to its base URL and AI_SKIN_API_URL to the
+# complete skin/non-skin validation endpoint.
 AI_API_URL = os.environ.get(
     "AI_API_URL",
     "" if not DEBUG else "http://127.0.0.1:8000",
 ).strip()
-if not DEBUG and ML_MODEL_BACKEND.lower() == "api" and not AI_API_URL:
-    raise ImproperlyConfigured(
-        "AI_API_URL must be set when ML_MODEL_BACKEND=api in production."
-    )
+AI_SKIN_API_URL = os.environ.get("AI_SKIN_API_URL", "").strip()
+AI_SKIN_API_FILE_FIELD = os.environ.get(
+    "AI_SKIN_API_FILE_FIELD", "file"
+).strip() or "file"
+if not DEBUG and ML_MODEL_BACKEND.lower() == "api":
+    if not AI_API_URL:
+        raise ImproperlyConfigured(
+            "AI_API_URL must be set when ML_MODEL_BACKEND=api in production."
+        )
+    if not AI_SKIN_API_URL:
+        raise ImproperlyConfigured(
+            "AI_SKIN_API_URL must be set when ML_MODEL_BACKEND=api in production."
+        )
 # Optional bearer token if your FastAPI service requires authentication.
 AI_API_TOKEN = os.environ.get("AI_API_TOKEN", "").strip()
-# Per-request timeout (seconds) for the FastAPI /predict call.
+# The skin-validation API can use a distinct token; otherwise share the
+# seven-class API token for backward compatibility with existing deployments.
+AI_SKIN_API_TOKEN = os.environ.get(
+    "AI_SKIN_API_TOKEN", AI_API_TOKEN
+).strip()
+# Per-request timeout (seconds) for each ML API call.
 AI_API_TIMEOUT = int(os.environ.get("AI_API_TIMEOUT", "120"))
 
 # HAM10000 class -> full medical name mapping (used for display)
