@@ -1,0 +1,196 @@
+
+
+A
+Al Fahim's workspace
+Projects
+DermaCheckerBD
+
+Environment
+
+
+Search
+Ctrl+
+K
+
+New
+
+Upgrade
+
+
+2
+Dashboard
+DermaCheckerBD
+Deploys
+Settings
+Monitor
+Events
+Logs
+Metrics
+Manage
+Compute
+Environment
+Shell
+Previews
+Disk
+One-Off Jobs
+Changelog
+Status
+
+Collapse
+Web Service
+DermaCheckerBD
+Python 3
+Free
+Upgrade your instance
+
+Connect
+
+Manual Deploy
+Service ID:
+srv-dba6o1nbtjjs73e0rbh0
+
+Alfahimfuad / DermaCheckerBD
+main
+3c675aa
+Live
+https://dermacheckerbd-wwiw.onrender.com
+
+Most recent deploy
+Status:
+Failed
+Commit:
+3c675aa
+e0193e0
+Duration:
+23.0s
+Action:
+Environment
+
+Create environment group
+Environment Variables
+Set environment-specific config and secrets (such as API keys), then read those values from your code. Learn more.
+
+Export
+
+Edit
+Key	Value
+Key
+AI_API_TIMEOUT
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+AI_API_URL
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+CLOUDINARY_URL
+Value
+CLOUDINARY_URL=cloudinary://987974646815781:b93dSmo7MPJlpVSMct4nNBgNB9Y@uzvktivn
+
+
+Key
+DATABASE_URL
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+DJANGO_ALLOWED_HOSTS
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+DJANGO_DEBUG
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+DJANGO_SECRET_KEY
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+DJANGO_SUPERUSER_PASSWORD
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+DJANGO_SUPERUSER_USERNAME
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+GEMINI_API_KEY
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+GEMINI_MODEL
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+GEOAPIFY_API_KEY
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+ML_MODEL_BACKEND
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+ML_MODEL_CLASSES
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SIMILAR_CASES_ENABLED
+Value
+
+• • • • • • • • • • • •
+
+
+
+Show more
+Secret Files
+Store plaintext files containing secret data (such as a .env file or a private key).
+Access during builds and at runtime from your app’s root, or from /etc/secrets/<filename>.
+
+Add file
+More options
+Linked Environment Groups
+Environment groups are collections of environment variables and secret files that you can share across multiple services.
+No environment groups available to link.
+New Environment Group
+0 services selected:
+
+Move
+

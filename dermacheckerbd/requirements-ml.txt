@@ -1,0 +1,5 @@
+# Install this file for local inference with the bundled Keras model.
+# API-only website deployments should install requirements.txt instead.
+-r requirements.txt
+tensorflow>=2.20,<3
+gdown>=5.2,<6
