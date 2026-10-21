@@ -21,6 +21,7 @@ from django.utils.text import get_valid_filename
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from apps.common.services.ai_api import NonSkinImageError, validate_skin_image
 from apps.common.services.prediction import (
     InvalidImageError, ModelNotLoadedError, PredictionError, PredictionService,
     confidence_to_fraction,
@@ -122,6 +123,32 @@ def _handle_upload(request):
     # Read bytes once
     image_bytes = uploaded.read()
     uploaded.seek(0)
+
+    # Gate every upload through the separate Skin/Non-Skin API before any
+    # lesion prediction. Existing validation and prediction paths continue
+    # unchanged after the API confirms the image is skin.
+    try:
+        validate_skin_image(
+            image_bytes,
+            filename=uploaded.name,
+            content_type=uploaded.content_type,
+        )
+    except NonSkinImageError:
+        return render(request, "predictor/upload.html", {
+            "form": form, "classes": PredictionService.class_metadata(),
+            "error": (
+                "This image was classified as non-skin. Please upload a clear "
+                "photo of a skin lesion to continue."
+            ),
+        })
+    except PredictionError:
+        logger.exception("Skin/non-skin validation failed.")
+        return render(request, "predictor/upload.html", {
+            "form": form, "classes": PredictionService.class_metadata(),
+            "error": (
+                "Image validation could not be completed. Please try again later."
+            ),
+        })
 
     # Wrong-input protection (corrupt file / non-skin)
     wrong_report, pil_image = WrongInputService.validate_bytes(image_bytes)

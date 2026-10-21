@@ -257,6 +257,11 @@ class AuthTests(TestCase):
 class UploadAndPredictionTests(TestCase):
     def setUp(self):
         PredictionService.reset()
+        self.skin_validation_patcher = patch(
+            "apps.predictor.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
         self.user = User.objects.create_user(username="bob", password="Pass!2024")
         self.c = Client()
         self.c.login(username="bob", password="Pass!2024")
@@ -283,6 +288,28 @@ class UploadAndPredictionTests(TestCase):
         record = PredictionRecord.objects.get(user=self.user)
         self.assertGreater(record.confidence, 0.0)
         self.assertEqual(len(record.probabilities), 7)
+
+    def test_non_skin_upload_is_rejected_before_lesion_prediction(self):
+        from apps.common.services.ai_api import NonSkinImageError
+
+        image = make_skin_image(seed=71, size=(300, 300))
+        upload = SimpleUploadedFile(
+            "not-a-lesion.jpg",
+            image_to_jpeg_bytes(image),
+            content_type="image/jpeg",
+        )
+        with patch(
+            "apps.predictor.views.validate_skin_image",
+            side_effect=NonSkinImageError,
+        ), patch(
+            "apps.predictor.views.PredictionService.predict_pil"
+        ) as lesion_predict:
+            response = self.c.post("/predict/", {"image": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "classified as non-skin")
+        lesion_predict.assert_not_called()
+        self.assertFalse(PredictionRecord.objects.filter(user=self.user).exists())
 
 
     def test_upload_rejects_non_image(self):
@@ -390,6 +417,11 @@ class UploadAndPredictionTests(TestCase):
 class PhotoGuidePredictionHandoffTests(TestCase):
     def setUp(self):
         PredictionService.reset()
+        self.skin_validation_patcher = patch(
+            "apps.predictor.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
         self.media_dir = tempfile.TemporaryDirectory()
         media_settings = override_settings(MEDIA_ROOT=self.media_dir.name)
         media_settings.enable()

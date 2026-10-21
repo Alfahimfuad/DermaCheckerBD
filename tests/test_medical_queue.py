@@ -1,5 +1,6 @@
 import tempfile
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -44,6 +45,11 @@ class PatientProfileDetailsTests(TestCase):
 class PatientNamedUploadTests(TestCase):
     def setUp(self):
         PredictionService.reset()
+        skin_validation_patcher = patch(
+            "apps.predictor.views.validate_skin_image"
+        )
+        skin_validation_patcher.start()
+        self.addCleanup(skin_validation_patcher.stop)
         self.media_dir = tempfile.TemporaryDirectory()
         media_settings = override_settings(MEDIA_ROOT=self.media_dir.name)
         media_settings.enable()
