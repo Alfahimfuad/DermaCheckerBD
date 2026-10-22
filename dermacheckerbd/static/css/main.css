@@ -1041,10 +1041,24 @@ a:hover { color: var(--primary); }
   background: var(--bg-soft);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.4rem;                /* tight default gap; bumped via :has() below */
 }
-.chatbot-msg { display: flex; flex: 0 0 auto; min-width: 0; }
+.chatbot-msg {
+  display: flex;
+  flex: 0 0 auto;
+  width: 100%;                /* full-width row so justify-content works */
+  min-width: 0;
+  align-items: flex-start;
+}
 .chatbot-msg.user { justify-content: flex-end; }
+.chatbot-msg.chatbot-msg-bot { justify-content: flex-start; }
+/* When consecutive messages come from the SAME side, keep the gap tight.
+   When the side CHANGES (bot → user or user → bot), add extra vertical
+   breathing room so the conversation reads like a chat, not a wall. */
+.chatbot-msg.chatbot-msg-bot + .chatbot-msg.user,
+.chatbot-msg.user + .chatbot-msg.chatbot-msg-bot {
+  margin-top: 0.55rem;
+}
 .chatbot-msg-bubble {
   max-width: 80%;
   min-width: 0;
@@ -1054,17 +1068,21 @@ a:hover { color: var(--primary); }
   line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .chatbot-msg-bot .chatbot-msg-bubble {
   background: white;
   color: var(--text);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
+  margin-right: auto;         /* push bubble to the left edge */
 }
 .chatbot-msg.user .chatbot-msg-bubble {
   background: var(--primary);
   color: white;
   border-bottom-right-radius: 4px;
+  margin-left: auto;          /* push bubble to the right edge */
 }
 .chatbot-msg-bubble strong { font-weight: 700; }
 .chatbot-typing { display: inline-flex; gap: 4px; align-items: center; padding: 4px 0; }

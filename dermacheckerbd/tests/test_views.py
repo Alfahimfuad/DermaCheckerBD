@@ -864,8 +864,11 @@ class PhotoGuideHandoffTests(TestCase):
             re.DOTALL,
         )
         self.assertIsNotNone(button)
-        button_text = re.sub(r"<[^>]+>", "", button.group(1)).strip()
-        self.assertEqual(button_text, "Run prediction on this image")
+        # HTML-unescape the captured text so "Run prediction &amp; analyze"
+        # in the markup compares equal to its plain-text form.
+        import html as _html
+        button_text = _html.unescape(re.sub(r"<[^>]+>", "", button.group(1))).strip()
+        self.assertEqual(button_text, "Run prediction & analyze")
         self.assertNotIn("Preparing image", button_text)
 
 

@@ -80,7 +80,7 @@
 
             <button type="submit" class="btn app-btn-primary mt-4 w-100" id="submitBtn" disabled>
               <i data-lucide="activity" style="width:16px;height:16px;"></i>
-              <span id="submitLabel" data-i18n="predict.submit">Check image quality &amp; analyze</span>
+              <span id="submitLabel" data-i18n="predict.submit">Run prediction &amp; analyze</span>
             </button>
           </form>
         </div>
@@ -237,7 +237,7 @@
         if (label) {
           label.textContent = label.getAttribute('data-i18n-original')
             || label.textContent.trim()
-            || 'Check image quality & analyze';
+            || 'Run prediction & analyze';
         }
         submitted = false;
       });
@@ -252,7 +252,7 @@
       // timeout fires. main.js will not re-run after a 60s timer, so a
       // hard-coded English string here would otherwise leak through the
       // Bangla UI.
-      var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Check image quality & analyze';
+      var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Run prediction & analyze';
       label.textContent = window.DERMA && window.DERMA.t
         ? window.DERMA.t('predict.processing', 'Processing…')
         : 'Processing…';
