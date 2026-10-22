@@ -204,15 +204,32 @@ class GeminiService:
         if not settings.GEMINI_API_KEY:
             return None
         try:
-            # New SDK
+            # New SDK (google-genai). The `google` namespace package is
+            # provided by google-genai; if Render's build cached an older
+            # wheel that ships google-cloud-* but not google-genai, the
+            # `from google import genai` import will raise ModuleNotFoundError
+            # — which we log clearly so the deployer can spot the missing
+            # dependency in the build log.
             from google import genai
             from google.genai import types
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             cls._client = client
             cls._model = settings.GEMINI_MODEL
             return client
+        except ImportError as e:
+            logger.warning(
+                "Could not import google-genai (%s). Make sure your build "
+                "installed the `google-genai>=1.0` package from requirements.txt. "
+                "The chatbot will fall back to offline (canned) responses.",
+                e,
+            )
+            return None
         except Exception as e:
-            logger.warning("Could not initialize google-genai client: %s", e)
+            logger.warning(
+                "Could not initialize google-genai client: %s. The chatbot "
+                "will fall back to offline (canned) responses.",
+                e,
+            )
             return None
 
     @classmethod
@@ -340,6 +357,13 @@ Signed-in user access scope:
                         logger.info("Temporary Gemini API failure; retrying once.")
                         time.sleep(0.75)
                         continue
+                    # Surface the model name and the API error type clearly so
+                    # the deployer can spot 404 (wrong model name) or 401/403
+                    # (bad API key) without having to read the raw exception.
+                    logger.warning(
+                        "Gemini generate_content failed for model=%r: %s",
+                        cls._model, e,
+                    )
                     raise
 
             if _hit_output_token_limit(response):
