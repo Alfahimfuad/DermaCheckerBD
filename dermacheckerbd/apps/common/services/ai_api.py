@@ -1,34 +1,20 @@
 """FastAPI prediction client.
 
-When ``settings.ML_MODEL_BACKEND == "api"`` the Django prediction service
-forwards every uploaded image to a FastAPI service (running ResNet50 in a
-separate process) instead of loading TensorFlow in-process.
+When settings.ML_MODEL_BACKEND == "api", Django forwards uploaded images
+to a separate FastAPI service for skin validation and lesion prediction.
 
-Contract with the FastAPI service
----------------------------------
-- Endpoint: ``POST {AI_API_URL}/predict``
-- Multipart form field: ``file``  (a single image)
-- Optional auth: bearer token via ``AI_API_TOKEN``
-- Response JSON shape::
+Skin validation contract:
+    POST {AI_SKIN_API_URL}/api/check-skin
+    Multipart field: file
 
-    {
-      "success": true,
-      "predicted_class": "mel",         # one of HAM10000 codes
-      "confidence": 0.8723,             # float in [0, 1]
-      "probabilities": {                # all 7 HAM10000 classes
-        "akiec": 0.0123,
-        "bcc":   0.0456,
-        "bkl":   0.0789,
-        "df":    0.0011,
-        "mel":   0.8723,
-        "nv":    0.0312,
-        "vasc":  0.0006
-      }
-    }
+Lesion prediction contract:
+    POST {AI_API_URL}/predict
+    Multipart field: file
 
-On failure the service may return ``{"success": false, "error": "..."}`` or
-a non-2xx status code; both are translated to :class:`PredictionError`.
+Optional authentication:
+    Authorization: Bearer <AI_API_TOKEN>
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,68 +27,134 @@ from apps.common.services.prediction import PredictionError
 
 logger = logging.getLogger(__name__)
 
+# Skin / Non-Skin validation endpoint.
 SKIN_NON_SKIN_ENDPOINT = "/api/check-skin"
+
+# Lesion classification endpoint.
+PREDICTION_ENDPOINT = "/predict"
 
 
 class NonSkinImageError(PredictionError):
     """Raised when the validation API classifies an upload as non-skin."""
 
 
-def _skin_class_from_response(payload: Any) -> bool:
-    """Return the Skin/Non-Skin result from common classifier API payloads.
+def _get_api_headers() -> Dict[str, str]:
+    """Build optional API authentication headers."""
+    headers: Dict[str, str] = {}
 
-    Unknown labels and response shapes fail closed: the lesion classifier must
-    not run unless the validation API explicitly identifies the image as Skin.
+    token = getattr(settings, "AI_API_TOKEN", "") or ""
+    token = token.strip()
+
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    return headers
+
+
+def _skin_class_from_response(payload: Any) -> bool:
+    """Return True for Skin and False for Non-Skin.
+
+    Unknown labels and response shapes fail closed. The lesion classifier
+    must not run unless the validation API explicitly identifies the image
+    as Skin.
     """
     if isinstance(payload, str):
         label = payload
+
     elif isinstance(payload, dict):
         if payload.get("success") is False:
-            raise PredictionError("The skin validation service reported failure.")
+            message = (
+                payload.get("error")
+                or payload.get("detail")
+                or "The skin validation service reported failure."
+            )
+            raise PredictionError(str(message))
 
         is_skin = payload.get("is_skin")
         if isinstance(is_skin, bool):
             return is_skin
 
         label = None
-        for key in ("predicted_class", "prediction", "label", "class_name", "class", "result"):
+
+        for key in (
+            "predicted_class",
+            "prediction",
+            "label",
+            "class_name",
+            "class",
+            "result",
+        ):
             candidate = payload.get(key)
+
             if isinstance(candidate, str):
                 label = candidate
                 break
 
+        # If the API returns class probabilities instead of a label,
+        # choose the class with the highest numeric score.
         if label is None:
-            for key in ("probabilities", "scores", "class_probabilities"):
+            for key in (
+                "probabilities",
+                "scores",
+                "class_probabilities",
+            ):
                 scores = payload.get(key)
-                if isinstance(scores, dict) and scores:
-                    numeric_scores = {}
-                    for score_label, score in scores.items():
-                        try:
-                            numeric_scores[str(score_label)] = float(score)
-                        except (TypeError, ValueError):
-                            continue
-                    if numeric_scores:
-                        ordered = sorted(
-                            numeric_scores.items(),
-                            key=lambda item: item[1],
-                            reverse=True,
+
+                if not isinstance(scores, dict) or not scores:
+                    continue
+
+                numeric_scores = {}
+
+                for score_label, score in scores.items():
+                    try:
+                        numeric_scores[str(score_label)] = float(score)
+                    except (TypeError, ValueError):
+                        continue
+
+                if numeric_scores:
+                    ordered = sorted(
+                        numeric_scores.items(),
+                        key=lambda item: item[1],
+                        reverse=True,
+                    )
+
+                    if (
+                        len(ordered) > 1
+                        and ordered[0][1] == ordered[1][1]
+                    ):
+                        raise PredictionError(
+                            "The skin validation service returned "
+                            "an ambiguous result."
                         )
-                        if len(ordered) > 1 and ordered[0][1] == ordered[1][1]:
-                            raise PredictionError(
-                                "The skin validation service returned an ambiguous result."
-                            )
-                        label = ordered[0][0]
-                        break
+
+                    label = ordered[0][0]
+                    break
+
     else:
         label = None
 
-    normalized = "".join(ch for ch in str(label or "").lower() if ch.isalnum())
-    if normalized in {"skin", "skinimage"}:
+    normalized = "".join(
+        character
+        for character in str(label or "").lower()
+        if character.isalnum()
+    )
+
+    if normalized in {
+        "skin",
+        "skinimage",
+    }:
         return True
-    if normalized in {"nonskin", "nonskinimage", "notskin"}:
+
+    if normalized in {
+        "nonskin",
+        "nonskinimage",
+        "notskin",
+    }:
         return False
+
     raise PredictionError(
-        "The skin validation service returned an unrecognized classification."
+        "The skin validation service returned an unrecognized "
+        "classification."
     )
 
 
@@ -111,154 +163,286 @@ def validate_skin_image(
     filename: str = "skin_image.jpg",
     content_type: str = "image/jpeg",
 ) -> None:
-    """Call the separate Skin/Non-Skin API before lesion prediction.
+    """Validate an uploaded image before lesion classification."""
 
-    Uses the dedicated ``AI_SKIN_API_URL`` setting so the skin classifier
-    can run on a different host than the lesion predictor. When that setting
-    is empty (legacy deployments), it transparently falls back to
-    ``AI_API_URL`` so a single-service setup keeps working.
+    skin_api_url = (
+        getattr(settings, "AI_SKIN_API_URL", "") or ""
+    ).strip()
 
-    The lesion classifier's bearer token and timeout settings are reused;
-    the predictor's ``/predict`` endpoint and response contract are not
-    changed.
-    """
-    skin_api_url = getattr(settings, "AI_SKIN_API_URL", "").strip()
+    # Backward-compatible fallback for single-service deployments.
     if not skin_api_url:
-        # Legacy single-service fallback: reuse the prediction API URL.
-        skin_api_url = getattr(settings, "AI_API_URL", "").strip()
-    if not skin_api_url:
-        raise PredictionError("The skin validation service is not configured.")
+        skin_api_url = (
+            getattr(settings, "AI_API_URL", "") or ""
+        ).strip()
 
-    url = f"{skin_api_url.rstrip('/')}{SKIN_NON_SKIN_ENDPOINT}"
-    headers = {}
-    if getattr(settings, "AI_API_TOKEN", "").strip():
-        headers["Authorization"] = f"Bearer {settings.AI_API_TOKEN.strip()}"
+    if not skin_api_url:
+        raise PredictionError(
+            "The skin validation service is not configured."
+        )
+
+    # IMPORTANT: the endpoint is /api/check-skin, not /skin_non_skin.
+    url = (
+        f"{skin_api_url.rstrip('/')}"
+        f"{SKIN_NON_SKIN_ENDPOINT}"
+    )
+
+    headers = _get_api_headers()
+    timeout = getattr(settings, "AI_API_TIMEOUT", 120)
+
+    files = {
+        "file": (
+            filename or "skin_image.jpg",
+            image_bytes,
+            content_type or "image/jpeg",
+        )
+    }
 
     try:
+        logger.info(
+            "Sending image to Skin Validation API: %s",
+            url,
+        )
+
         response = requests.post(
             url,
-            files={
-                "file": (
-                    filename or "skin_image.jpg",
-                    image_bytes,
-                    content_type or "image/jpeg",
-                )
-            },
+            files=files,
             headers=headers or None,
-            timeout=getattr(settings, "AI_API_TIMEOUT", 120),
+            timeout=timeout,
         )
+
         response.raise_for_status()
+
+    except requests.exceptions.Timeout as exc:
+        logger.warning(
+            "Skin validation API timed out: %s",
+            exc,
+        )
+        raise PredictionError(
+            "The skin validation service timed out. "
+            "Please try again."
+        ) from exc
+
+    except requests.exceptions.HTTPError as exc:
+        # Include the upstream response details in server logs.
+        # Avoid exposing raw server details to end users.
+        try:
+            upstream_payload = response.json()
+            upstream_message = (
+                upstream_payload.get("detail")
+                or upstream_payload.get("error")
+                or upstream_payload.get("message")
+            )
+        except (ValueError, AttributeError):
+            upstream_message = response.text[:300]
+
+        logger.warning(
+            "Skin validation API returned HTTP %s. URL: %s. "
+            "Details: %s",
+            response.status_code,
+            url,
+            upstream_message or str(exc),
+        )
+
+        raise PredictionError(
+            "The skin validation service returned an error. "
+            "Please try again later."
+        ) from exc
+
+    except requests.exceptions.ConnectionError as exc:
+        logger.warning(
+            "Skin validation API connection failed: %s",
+            exc,
+        )
+        raise PredictionError(
+            "Could not connect to the skin validation service. "
+            "Please try again later."
+        ) from exc
+
     except requests.exceptions.RequestException as exc:
-        logger.warning("Skin validation API request failed: %s", exc)
+        logger.warning(
+            "Skin validation API request failed: %s",
+            exc,
+        )
         raise PredictionError(
             "The skin validation service could not be reached."
         ) from exc
 
     try:
         payload = response.json()
+
     except ValueError as exc:
-        logger.warning("Skin validation API returned a non-JSON response.")
+        logger.warning(
+            "Skin validation API returned non-JSON response: %r",
+            response.text[:200],
+        )
         raise PredictionError(
             "The skin validation service returned an invalid response."
         ) from exc
 
+    # Continue to ResNet50 only if the image is explicitly classified
+    # as Skin.
     if not _skin_class_from_response(payload):
-        raise NonSkinImageError("This image was classified as non-skin.")
+        raise NonSkinImageError(
+            "This image was classified as non-skin."
+        )
+
+    logger.info("Skin validation successful.")
 
 
-def predict_skin_image(image_file) -> Dict[str, Any]:
-    """Forward an uploaded image to the FastAPI prediction service.
+def predict_skin_image(image_file: Any) -> Dict[str, Any]:
+    """Forward an uploaded image to the lesion prediction API.
 
     Args:
-        image_file: any file-like object with ``.read()``, optionally
-            exposing ``.name`` and ``.content_type`` (a Django
-            ``UploadedFile`` qualifies, as does a wrapped ``io.BytesIO``).
+        image_file: A file-like object with read(), optionally exposing
+            name and content_type attributes.
 
     Returns:
-        The parsed JSON response from FastAPI. Always contains
-        ``success=True`` and a ``probabilities`` dict on the happy path.
+        Parsed JSON response containing success=True and probabilities.
 
     Raises:
-        PredictionError: on any network failure, non-2xx response, or
-            ``success=False`` payload from the FastAPI service.
+        PredictionError: If the API request fails or its response is invalid.
     """
-    url = f"{settings.AI_API_URL.rstrip('/')}/predict"
 
-    # Rewind to start so the same file object can be re-used by other
-    # services (quality check, wrong-input check) before/after this call.
+    ai_api_url = (
+        getattr(settings, "AI_API_URL", "") or ""
+    ).strip()
+
+    if not ai_api_url:
+        raise PredictionError(
+            "The prediction service is not configured."
+        )
+
+    url = f"{ai_api_url.rstrip('/')}{PREDICTION_ENDPOINT}"
+
+    # Rewind the uploaded file before forwarding it.
     try:
         image_file.seek(0)
     except Exception:
-        # Some file-like objects don't support seek; that's fine, the
-        # caller is responsible for handing us a fresh-readable object.
         pass
+
+    filename = (
+        getattr(image_file, "name", None)
+        or "skin_image.jpg"
+    )
+
+    content_type = (
+        getattr(image_file, "content_type", None)
+        or "image/jpeg"
+    )
 
     files = {
         "file": (
-            getattr(image_file, "name", "skin_image.jpg") or "skin_image.jpg",
+            filename,
             image_file,
-            getattr(image_file, "content_type", "image/jpeg") or "image/jpeg",
+            content_type,
         )
     }
 
-    headers: Dict[str, str] = {}
-    if getattr(settings, "AI_API_TOKEN", "").strip():
-        headers["Authorization"] = f"Bearer {settings.AI_API_TOKEN.strip()}"
+    headers = _get_api_headers()
+    timeout = getattr(settings, "AI_API_TIMEOUT", 120)
 
     try:
         response = requests.post(
             url,
             files=files,
             headers=headers or None,
-            timeout=getattr(settings, "AI_API_TIMEOUT", 120),
+            timeout=timeout,
         )
+
     except requests.exceptions.Timeout as exc:
-        logger.warning("FastAPI /predict timed out: %s", exc)
+        logger.warning(
+            "FastAPI /predict timed out: %s",
+            exc,
+        )
         raise PredictionError(
-            "The prediction service did not respond in time. Please try again."
+            "The prediction service did not respond in time. "
+            "Please try again."
         ) from exc
+
     except requests.exceptions.ConnectionError as exc:
-        logger.warning("FastAPI /predict connection error: %s", exc)
+        logger.warning(
+            "FastAPI /predict connection error: %s",
+            exc,
+        )
         raise PredictionError(
-            "Could not reach the prediction service. Please try again later."
+            "Could not reach the prediction service. "
+            "Please try again later."
         ) from exc
+
     except requests.exceptions.RequestException as exc:
-        logger.warning("FastAPI /predict request failed: %s", exc)
+        logger.warning(
+            "FastAPI /predict request failed: %s",
+            exc,
+        )
         raise PredictionError(
             "The prediction service could not be contacted."
         ) from exc
 
     try:
         response.raise_for_status()
+
     except requests.exceptions.HTTPError as exc:
-        # Try to surface the upstream error message if present.
         try:
             payload = response.json()
-            upstream_msg = (payload or {}).get("error") or (payload or {}).get("detail")
-        except ValueError:
-            upstream_msg = None
-        logger.warning("FastAPI /predict returned %s: %s", response.status_code, upstream_msg or exc)
+
+            upstream_message = (
+                payload.get("error")
+                or payload.get("detail")
+                or payload.get("message")
+            )
+
+        except (ValueError, AttributeError):
+            upstream_message = None
+
+        logger.warning(
+            "FastAPI /predict returned HTTP %s: %s",
+            response.status_code,
+            upstream_message or str(exc),
+        )
+
         raise PredictionError(
-            upstream_msg or "The prediction service returned an error."
+            upstream_message
+            or "The prediction service returned an error."
         ) from exc
 
     try:
         result = response.json()
+
     except ValueError as exc:
-        logger.warning("FastAPI /predict returned non-JSON body: %r", response.text[:200])
+        logger.warning(
+            "FastAPI /predict returned non-JSON response: %r",
+            response.text[:200],
+        )
         raise PredictionError(
             "The prediction service returned an invalid response."
         ) from exc
 
-    if not result.get("success"):
-        upstream_msg = result.get("error") or "Prediction failed on the FastAPI side."
-        logger.warning("FastAPI /predict returned success=False: %s", upstream_msg)
-        raise PredictionError(upstream_msg)
+    if not isinstance(result, dict):
+        raise PredictionError(
+            "The prediction service returned an invalid response."
+        )
 
-    # Validate the minimum required fields so the caller can rely on the
-    # shape without re-checking.
-    if "probabilities" not in result or not isinstance(result["probabilities"], dict):
-        logger.warning("FastAPI /predict missing 'probabilities' dict: %r", result)
+    if not result.get("success"):
+        upstream_message = (
+            result.get("error")
+            or result.get("detail")
+            or "Prediction failed on the FastAPI side."
+        )
+
+        logger.warning(
+            "FastAPI /predict returned success=False: %s",
+            upstream_message,
+        )
+
+        raise PredictionError(str(upstream_message))
+
+    probabilities = result.get("probabilities")
+
+    if not isinstance(probabilities, dict):
+        logger.warning(
+            "FastAPI /predict missing probabilities dictionary: %r",
+            result,
+        )
         raise PredictionError(
             "The prediction service returned an incomplete response."
         )
