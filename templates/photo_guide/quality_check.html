@@ -18,10 +18,7 @@
       </div>
     {% endif %}
 
-    {# Non-skin uploads surface as an animated overlay state instead of a
-       plain red banner. The overlay markup lives in
-       _prediction_overlay.html; we just flip its data-state to "non-skin"
-       on DOMContentLoaded via the script at the bottom of this page. #}
+    {% comment %}Non-skin uploads surface as an animated overlay state instead of a plain red banner. The overlay markup lives in _prediction_overlay.html; we just flip its data-state to "non-skin" on DOMContentLoaded via the script at the bottom of this page.{% endcomment %}
     {% if non_skin_error %}
       <div id="nonSkinFlag" data-non-skin="true" hidden></div>
     {% endif %}
