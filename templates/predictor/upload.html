@@ -6,473 +6,279 @@
 {% block content %}
 <section class="section">
   <div class="container-xl" style="max-width: 56rem;">
-
-    <span class="app-badge mb-3">
-      <i data-lucide="scan-search" style="width:14px;height:14px;"></i>
-      <span data-i18n="predict.eyebrow">Skin image prediction</span>
-    </span>
-
-    <h1 class="mb-2" data-i18n="predict.title">
-      Upload a skin lesion image
-    </h1>
-
-    <p class="text-muted" data-i18n="predict.subtitle">
-      This system is developed for educational/research purposes and is not a medical diagnostic tool.
-      The prediction should not be considered a medical diagnosis.
-      Please consult a qualified dermatologist or healthcare professional for proper evaluation.
-    </p>
-
+    <span class="app-badge mb-3"><i data-lucide="scan-search" style="width:14px;height:14px;"></i> <span data-i18n="predict.eyebrow">Skin image prediction</span></span>
+    <h1 class="mb-2" data-i18n="predict.title">Upload a skin lesion image</h1>
+    <p class="text-muted" data-i18n="predict.subtitle">This system is developed for educational/research purposes and is not a medical diagnostic tool. The prediction should not be considered a medical diagnosis. Please consult a qualified dermatologist or healthcare professional for proper evaluation.</p>
     <hr class="my-4">
 
     {% if error and not non_skin_error %}
       <div class="medical-disclaimer mb-4">
-        <p class="mb-1">
-          <strong>
-            <i data-lucide="alert-triangle"
-               style="width:16px;height:16px;vertical-align:-2px;"></i>
-            <span data-i18n="upload.rejected">Upload rejected</span>
-          </strong>
-        </p>
-
+        <p class="mb-1"><strong><i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:-2px;"></i> <span data-i18n="upload.rejected">Upload rejected</span></strong></p>
         <p class="mb-1" data-i18n-server>{{ error }}</p>
-
-        {% if details %}
-          <p class="mb-1 small" data-i18n-server>{{ details }}</p>
-        {% endif %}
-
+        {% if details %}<p class="mb-1 small" data-i18n-server>{{ details }}</p>{% endif %}
         {% if suggestions %}
           <ul class="mb-0 small">
-            {% for s in suggestions %}
-              <li data-i18n-server>{{ s }}</li>
-            {% endfor %}
+            {% for s in suggestions %}<li data-i18n-server>{{ s }}</li>{% endfor %}
           </ul>
         {% endif %}
       </div>
     {% endif %}
 
+    {% comment %}Non-skin uploads surface as an animated overlay state instead of a plain red banner. The overlay markup lives in _prediction_overlay.html; we just flip its data-state to "non-skin" on DOMContentLoaded via the script at the bottom of this page.{% endcomment %}
     {% if non_skin_error %}
       <div id="nonSkinFlag" data-non-skin="true" hidden></div>
     {% endif %}
 
     <div class="row g-4">
-
-      <!-- Upload form -->
       <div class="col-lg-7">
         <div class="app-card">
-
-          <form method="post"
-                enctype="multipart/form-data"
-                id="uploadForm">
-
+          <form method="post" enctype="multipart/form-data" id="uploadForm">
             {% csrf_token %}
 
-            <div class="upload-area"
-                 id="dropZone"
-                 aria-label="Image upload area"
-                 data-i18n-aria="aria.image_upload_area"
-                 tabindex="0"
-                 role="group">
-
-              <!-- Empty upload state -->
+            <div class="upload-area" id="dropZone" aria-label="Image upload area" data-i18n-aria="aria.image_upload_area" tabindex="0" role="group">
               <div data-upload-empty>
-                <div class="upload-icon">
-                  <i data-lucide="upload-cloud"></i>
-                </div>
-
-                <p class="fw-semibold mb-1" data-i18n="predict.drop_text">
-                  Drag &amp; drop a skin lesion image
-                </p>
-
-                <p class="upload-hint mb-2" data-i18n="predict.drop_hint">
-                  or click to browse · JPG, PNG, WEBP · max 10 MB
-                </p>
-
-                <p class="upload-hint mt-2 mb-0">
-                  <i data-lucide="camera"
-                     style="width:14px;height:14px;vertical-align:-2px;"></i>
-                  <span data-i18n="predict.camera_hint">
-                    On mobile, this will offer camera capture.
-                  </span>
-                </p>
+                <div class="upload-icon"><i data-lucide="upload-cloud"></i></div>
+                <p class="fw-semibold mb-1" data-i18n="predict.drop_text">Drag &amp; drop a skin lesion image</p>
+                <p class="upload-hint mb-2" data-i18n="predict.drop_hint">or click to browse · JPG, PNG, WEBP · max 10 MB</p>
+                <p class="upload-hint mt-2 mb-0"><i data-lucide="camera" style="width:14px;height:14px;vertical-align:-2px;"></i> <span data-i18n="predict.camera_hint">On mobile, this will offer camera capture.</span></p>
               </div>
-
-              <!-- Selected image state -->
               <div class="upload-selected" data-upload-selected hidden>
-
-                <div class="upload-inline-preview">
-                  <img data-upload-preview alt="Selected lesion preview">
-                </div>
-
+                <div class="upload-inline-preview"><img data-upload-preview alt="Selected lesion preview"></div>
                 <div class="upload-file-details">
-
-                  <span class="upload-status"
-                        data-upload-status
-                        role="status"></span>
-
-                  <strong class="upload-file-name"
-                          data-upload-filename></strong>
-
+                  <span class="upload-status" data-upload-status role="status"></span>
+                  <strong class="upload-file-name" data-upload-filename></strong>
                   <div class="upload-actions">
-
-                    <button type="button"
-                            class="btn app-btn-outline-primary btn-sm"
-                            data-upload-replace>
-                      <i data-lucide="refresh-cw" aria-hidden="true"></i>
-                      <span data-i18n="upload.replace">Replace</span>
+                    <button type="button" class="btn app-btn-outline-primary btn-sm" data-upload-replace>
+                      <i data-lucide="refresh-cw" aria-hidden="true"></i><span data-i18n="upload.replace">Replace</span>
                     </button>
-
-                    <button type="button"
-                            class="btn app-btn-outline-danger btn-sm"
-                            data-upload-remove>
-                      <i data-lucide="x" aria-hidden="true"></i>
-                      <span data-i18n="upload.remove">Remove</span>
+                    <button type="button" class="btn app-btn-outline-danger btn-sm" data-upload-remove>
+                      <i data-lucide="x" aria-hidden="true"></i><span data-i18n="upload.remove">Remove</span>
                     </button>
-
                   </div>
                 </div>
               </div>
-
-              <!-- Upload validation error -->
-              <p class="upload-error mb-0"
-                 data-upload-error
-                 role="alert"
-                 hidden></p>
-
-              <input type="file"
-                     name="image"
-                     id="imageInput"
-                     accept="image/jpeg,image/png,image/webp"
-                     hidden>
+              <p class="upload-error mb-0" data-upload-error role="alert" hidden></p>
+              <input type="file" name="image" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
             </div>
 
-            <!-- Image name -->
             <div class="mt-3">
-              <label class="app-form-label"
-                     for="{{ form.image_name.id_for_label }}"
-                     data-i18n="predict.image_name">
-                Image name
-              </label>
-
+              <label class="app-form-label" for="{{ form.image_name.id_for_label }}" data-i18n="predict.image_name">Image name</label>
               {{ form.image_name }}
-
               {% for error in form.image_name.errors %}
-                <div class="text-danger small mt-1" role="alert">
-                  {{ error }}
-                </div>
+                <div class="text-danger small mt-1" role="alert">{{ error }}</div>
               {% endfor %}
-
-              <div class="form-text" data-i18n="predict.image_name_help">
-                Used to label the saved image in your history.
-              </div>
+              <div class="form-text" data-i18n="predict.image_name_help">Used to label the saved image in your history.</div>
             </div>
 
-            <!-- Privacy notice -->
             <div class="privacy-note mt-3">
               <i data-lucide="lock"></i>
-              <span data-i18n="predict.privacy_note">
-                Image is processed by the Django backend. Not sent to the chatbot API.
-              </span>
+              <span data-i18n="predict.privacy_note">Image is processed by the Django backend. Not sent to the chatbot API.</span>
             </div>
 
-            <!-- Submit -->
-            <button type="submit"
-                    class="btn app-btn-primary mt-4 w-100"
-                    id="submitBtn"
-                    disabled>
-
-              <i data-lucide="activity"
-                 style="width:16px;height:16px;"></i>
-
-              <span id="submitLabel" data-i18n="predict.submit">
-                Run prediction &amp; analyze
-              </span>
+            <button type="submit" class="btn app-btn-primary mt-4 w-100" id="submitBtn" disabled>
+              <i data-lucide="activity" style="width:16px;height:16px;"></i>
+              <span id="submitLabel" data-i18n="predict.submit">Run prediction &amp; analyze</span>
             </button>
-
           </form>
         </div>
       </div>
 
-      <!-- Supported categories and disclaimer -->
       <div class="col-lg-5">
-
         <div class="app-card mb-3">
-          <h3 class="h6" data-i18n="predict.classes_title">
-            Supported lesion categories
-          </h3>
-
-          <p class="text-muted small mb-2" data-i18n="predict.classes_sub">
-            Predictions include both malignant and benign categories.
-          </p>
-
+          <h3 class="h6" data-i18n="predict.classes_title">Supported lesion categories</h3>
+          <p class="text-muted small mb-2" data-i18n="predict.classes_sub">Predictions include both malignant and benign categories.</p>
           <ul class="list-unstyled small mb-0">
             {% for c in classes %}
               <li class="d-flex justify-content-between border-bottom py-1">
                 <code>{{ c.code }}</code>
-                <span class="text-muted"
-                      data-i18n="class-name.{{ c.code }}">
-                  {{ c.name }}
-                </span>
+                <span class="text-muted" data-i18n="class-name.{{ c.code }}">{{ c.name }}</span>
               </li>
             {% endfor %}
           </ul>
         </div>
-
         <div class="medical-disclaimer">
-          <p class="mb-0" data-i18n="upload.important_body">
-            <strong>Important:</strong>
-            a high confidence score does not mean the prediction is medically correct.
-            This system is developed for educational/research purposes and is not a medical diagnostic tool.
-            Consult a qualified dermatologist or healthcare professional for proper evaluation.
-          </p>
+          <p class="mb-0" data-i18n="upload.important_body"><strong>Important:</strong> a high confidence score does not mean the prediction is medically correct. This system is developed for educational/research purposes and is not a medical diagnostic tool. Consult a qualified dermatologist or healthcare professional for proper evaluation.</p>
         </div>
-
       </div>
     </div>
   </div>
 </section>
 
-<!-- Prediction loading overlay -->
+<!-- Prediction loading overlay — shown when the form is submitted.
+     The browser cannot know the actual backend progress because the
+     upload POST is synchronous; we use an honest indeterminate stepper
+     that advances only through clearly-labelled stages and never
+     claims '100% complete' until the response actually arrives. -->
 {% include "predictor/_prediction_overlay.html" %}
 
 {% endblock %}
 
-
 {% block extra_scripts %}
-
 <script src="{% static 'js/image-upload.js' %}" defer></script>
-
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-
-  var submitBtn = document.getElementById('submitBtn');
-
-  var uploader = window.setupImageUpload({
-    dropId: 'dropZone',
-    inputId: 'imageInput',
-    formId: 'uploadForm',
-
-    onFile: function (file) {
-      submitBtn.disabled = !file;
-
-      var imageName = document.getElementById('id_image_name');
-
-      if (file && imageName && !imageName.value.trim()) {
-        imageName.value = file.name.replace(/\.[^.]+$/, '');
-      }
-    }
-  });
-
-  // Multi-stage loading overlay
-  var form = document.getElementById('uploadForm');
-  var overlay = document.getElementById('predictionOverlay');
-
-  var stages = document.querySelectorAll(
-    '#predictionStages .prediction-stage'
-  );
-
-  var stageTimers = [];
-  var submitted = false;
-  var fallbackTimer = null;
-
-  // Illustrative stage timings, not actual backend progress.
-  var STAGE_DELAYS = [0, 1500, 3000, 5500, 8000];
-
-  function clearStageTimers() {
-    stageTimers.forEach(function (timer) {
-      clearTimeout(timer);
+  document.addEventListener('DOMContentLoaded', function () {
+    var submitBtn = document.getElementById('submitBtn');
+    var uploader = window.setupImageUpload({
+      dropId: 'dropZone',
+      inputId: 'imageInput',
+      formId: 'uploadForm',
+      onFile: function (file) {
+        submitBtn.disabled = !file;
+        var imageName = document.getElementById('id_image_name');
+        if (file && imageName && !imageName.value.trim()) {
+          imageName.value = file.name.replace(/\.[^.]+$/, '');
+        }
+      },
     });
 
-    stageTimers = [];
-  }
+    // ---- Multi-stage loading overlay ----
+    // The browser cannot know the real backend progress because the upload
+    // POST is synchronous and the response navigation wipes the page.
+    // We advance the 5-stage stepper on a fixed cadence as an *illustrative*
+    // timeline (no fake percentages) and never claim "100% complete" — the
+    // overlay simply disappears when the browser actually navigates to the
+    // result page (success) or when the fallback timeout fires (network
+    // error). When the server response classifies the upload as Non-Skin,
+    // we flip the overlay to its non-skin state instead of letting the
+    // ResNet50 stages keep ticking.
+    var form = document.getElementById('uploadForm');
+    var overlay = document.getElementById('predictionOverlay');
+    var stages = document.querySelectorAll('#predictionStages .prediction-stage');
+    var stageTimers = [];
+    var submitted = false;
 
-  function showOverlay() {
-    if (!overlay) return;
+    // Cadence in ms at which the active stage advances to the next.
+    // Stage 1 (Preparing) starts active. Each subsequent stage becomes
+    // active at its delay, marking the previous one as done. The final
+    // stage (Preparing your report) stays active until the server
+    // responds or the fallback timer fires.
+    // 0ms:    stage 1 active (Preparing image input)
+    // 1500ms: stage 2 active (Checking Skin vs Non-Skin)
+    // 3000ms: stage 3 active (Running ResNet50 classification)
+    // 5500ms: stage 4 active (Calculating prediction probabilities)
+    // 8000ms: stage 5 active (Preparing your report) — stays active
+    var STAGE_DELAYS = [0, 1500, 3000, 5500, 8000];
 
-    overlay.hidden = false;
-    overlay.setAttribute('aria-hidden', 'false');
-    overlay.dataset.state = 'loading';
+    function showOverlay() {
+      overlay.hidden = false;
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.dataset.state = 'loading';
+      document.body.style.overflow = 'hidden';
 
-    document.body.style.overflow = 'hidden';
-
-    var scanImage = document.getElementById('predictionScanImage');
-    var selectedFile = uploader && uploader.getFile();
-
-    if (selectedFile && scanImage) {
-      scanImage.src = URL.createObjectURL(selectedFile);
-      scanImage.hidden = false;
-    }
-
-    stages.forEach(function (el, index) {
-      el.classList.remove('is-active', 'is-done');
-
-      if (index === 0) {
-        el.classList.add('is-active');
-      }
-    });
-
-    clearStageTimers();
-
-    for (var i = 1; i < stages.length; i++) {
-      (function (index) {
-        var timer = setTimeout(function () {
-          if (!submitted || overlay.dataset.state !== 'loading') {
-            return;
-          }
-
-          stages[index - 1].classList.remove('is-active');
-          stages[index - 1].classList.add('is-done');
-          stages[index].classList.add('is-active');
-
-        }, STAGE_DELAYS[index]);
-
-        stageTimers.push(timer);
-      })(i);
-    }
-  }
-
-  function hideOverlay() {
-    if (!overlay) return;
-
-    overlay.hidden = true;
-    overlay.setAttribute('aria-hidden', 'true');
-    overlay.dataset.state = 'loading';
-
-    document.body.style.overflow = '';
-
-    var scanImage = document.getElementById('predictionScanImage');
-
-    if (scanImage) {
-      scanImage.removeAttribute('src');
-      scanImage.hidden = true;
-    }
-
-    stages.forEach(function (el, index) {
-      el.classList.remove('is-active', 'is-done');
-
-      if (index === 0) {
-        el.classList.add('is-active');
-      }
-    });
-
-    clearStageTimers();
-
-    if (fallbackTimer !== null) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-  }
-
-  function showNonSkinState() {
-    if (!overlay) return;
-
-    overlay.hidden = false;
-    overlay.setAttribute('aria-hidden', 'false');
-    overlay.dataset.state = 'non-skin';
-
-    document.body.style.overflow = 'hidden';
-
-    clearStageTimers();
-  }
-
-  // Dismiss non-skin overlay.
-  var dismissBtn = overlay
-    ? overlay.querySelector('[data-overlay-dismiss]')
-    : null;
-
-  if (dismissBtn) {
-    dismissBtn.addEventListener('click', function () {
-      hideOverlay();
-
-      // Reset upload form.
-      if (uploader && typeof uploader.clearFile === 'function') {
-        uploader.clearFile();
+      var scanImage = document.getElementById('predictionScanImage');
+      var selectedFile = uploader && uploader.getFile();
+      if (selectedFile && scanImage) {
+        scanImage.src = URL.createObjectURL(selectedFile);
+        scanImage.hidden = false;
       }
 
-      submitBtn.disabled = true;
+      // Reset all stages, mark stage 1 as active.
+      stages.forEach(function (el, i) {
+        el.classList.remove('is-active', 'is-done');
+        if (i === 0) el.classList.add('is-active');
+      });
 
+      // Advance subsequent stages on the cadence above.
+      for (var i = 1; i < stages.length; i++) {
+        (function (idx) {
+          var t = setTimeout(function () {
+            stages[idx - 1].classList.remove('is-active');
+            stages[idx - 1].classList.add('is-done');
+            stages[idx].classList.add('is-active');
+          }, STAGE_DELAYS[idx]);
+          stageTimers.push(t);
+        })(i);
+      }
+    }
+
+    function hideOverlay() {
+      overlay.hidden = true;
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.dataset.state = 'loading';
+      document.body.style.overflow = '';
+      var scanImage = document.getElementById('predictionScanImage');
+      if (scanImage) {
+        scanImage.removeAttribute('src');
+        scanImage.hidden = false;
+      }
+      stages.forEach(function (el, i) {
+        el.classList.remove('is-active', 'is-done');
+        if (i === 0) el.classList.add('is-active');
+      });
+      stageTimers.forEach(clearTimeout);
+      stageTimers = [];
+    }
+
+    function showNonSkinState() {
+      // Flip the overlay into its non-skin state. The 5-stage stepper is
+      // hidden by CSS and the animated "Non-Skin Image Detected" panel
+      // appears in its place. ResNet50 is never invoked by the backend
+      // for non-skin images.
+      overlay.hidden = false;
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.dataset.state = 'non-skin';
+      stageTimers.forEach(clearTimeout);
+      stageTimers = [];
+    }
+
+    // The dismiss button inside the non-skin overlay resets everything
+    // back to the empty upload form.
+    var dismissBtn = overlay.querySelector('[data-overlay-dismiss]');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', function () {
+        hideOverlay();
+        // Re-enable the submit button and clear the selected file so the
+        // user can pick a different image.
+        submitBtn.disabled = false;
+        var label = document.getElementById('submitLabel');
+        if (label) {
+          label.textContent = label.getAttribute('data-i18n-original')
+            || label.textContent.trim()
+            || 'Run prediction & analyze';
+        }
+        submitted = false;
+      });
+    }
+
+    form.addEventListener('submit', function (e) {
+      if (submitted) { e.preventDefault(); return; }
+      submitted = true;
       var label = document.getElementById('submitLabel');
+      // Capture the current translated label BEFORE we overwrite it, so we
+      // can restore it (in the user's chosen language) when the fallback
+      // timeout fires. main.js will not re-run after a 60s timer, so a
+      // hard-coded English string here would otherwise leak through the
+      // Bangla UI.
+      var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Run prediction & analyze';
+      label.textContent = window.DERMA && window.DERMA.t
+        ? window.DERMA.t('predict.processing', 'Processing…')
+        : 'Processing…';
+      submitBtn.disabled = true;
+      showOverlay();
 
-      if (label) {
-        label.textContent =
-          label.getAttribute('data-i18n-original') ||
-          'Run prediction & analyze';
-      }
-
-      submitted = false;
+      // If the response fails to load (network error), unlock after 60s
+      // so the user can try again rather than sit on a frozen overlay.
+      setTimeout(function () {
+        if (submitted) {
+          submitted = false;
+          hideOverlay();
+          label.textContent = originalLabel;
+          submitBtn.disabled = false;
+          alert(window.DERMA && window.DERMA.t
+            ? window.DERMA.t('predict.timeout_alert', 'The prediction is taking longer than expected. Please try again.')
+            : 'The prediction is taking longer than expected. Please try again.');
+        }
+      }, 60000);
     });
-  }
 
-  // Prevent duplicate submissions.
-  form.addEventListener('submit', function (event) {
-    if (submitted) {
-      event.preventDefault();
-      return;
+    // If the server just rendered the page in response to a non-skin
+    // upload (synchronous POST → 200 with `non_skin_error=True`), flip
+    // the shared overlay into its animated Non-Skin state so the user
+    // sees the professional message instead of the plain red banner.
+    var nonSkinFlag = document.getElementById('nonSkinFlag');
+    if (nonSkinFlag && nonSkinFlag.getAttribute('data-non-skin') === 'true') {
+      showNonSkinState();
     }
-
-    var selectedFile = uploader && uploader.getFile();
-
-    if (!selectedFile) {
-      event.preventDefault();
-      return;
-    }
-
-    submitted = true;
-
-    var label = document.getElementById('submitLabel');
-
-    var originalLabel = label
-      ? label.getAttribute('data-i18n-original') ||
-        label.textContent.trim() ||
-        'Run prediction & analyze'
-      : 'Run prediction & analyze';
-
-    if (label) {
-      label.textContent =
-        window.DERMA && window.DERMA.t
-          ? window.DERMA.t('predict.processing', 'Processing…')
-          : 'Processing…';
-    }
-
-    submitBtn.disabled = true;
-
-    showOverlay();
-
-    // Unlock the form if the request appears stuck.
-    fallbackTimer = setTimeout(function () {
-      if (!submitted) return;
-
-      submitted = false;
-      hideOverlay();
-
-      if (label) {
-        label.textContent = originalLabel;
-      }
-
-      submitBtn.disabled = !(uploader && uploader.getFile());
-
-      alert(
-        window.DERMA && window.DERMA.t
-          ? window.DERMA.t(
-              'predict.timeout_alert',
-              'The prediction is taking longer than expected. Please try again.'
-            )
-          : 'The prediction is taking longer than expected. Please try again.'
-      );
-
-    }, 60000);
   });
-
-  // Show the non-skin overlay after a server response.
-  var nonSkinFlag = document.getElementById('nonSkinFlag');
-
-  if (
-    nonSkinFlag &&
-    nonSkinFlag.getAttribute('data-non-skin') === 'true'
-  ) {
-    showNonSkinState();
-  }
-
-});
 </script>
-
 {% endblock %}
