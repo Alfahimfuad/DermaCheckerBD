@@ -281,40 +281,29 @@ ML_MODEL_CLASSES = os.environ.get(
 ).split(",")
 ML_MODEL_RESAMPLE = os.environ.get("ML_MODEL_RESAMPLE", "BILINEAR")
 
-# Seven-class FastAPI prediction API (used when ML_MODEL_BACKEND=api).
+# FastAPI prediction endpoint (used when ML_MODEL_BACKEND=api).
 # Local dev:  http://127.0.0.1:8000  (FastAPI on port 8000, Django on 8001+)
-# Production: set AI_API_URL to its base URL and AI_SKIN_API_URL to the
-# complete skin/non-skin validation endpoint.
+# Production: set AI_API_URL to your deployed FastAPI service's public URL.
 AI_API_URL = os.environ.get(
     "AI_API_URL",
     "" if not DEBUG else "http://127.0.0.1:8000",
 ).strip()
-AI_SKIN_API_URL = os.environ.get("AI_SKIN_API_URL", "").strip()
-AI_SKIN_API_PATH = (
-    os.environ.get("AI_SKIN_API_PATH", "/api/check-skin").strip()
-    or "/api/check-skin"
-)
-AI_SKIN_API_FILE_FIELD = os.environ.get(
-    "AI_SKIN_API_FILE_FIELD", "file"
-).strip() or "file"
-if not DEBUG and ML_MODEL_BACKEND.lower() == "api":
-    if not AI_API_URL:
-        raise ImproperlyConfigured(
-            "AI_API_URL must be set when ML_MODEL_BACKEND=api in production."
-        )
-    if not AI_SKIN_API_URL:
-        raise ImproperlyConfigured(
-            "AI_SKIN_API_URL must be set when ML_MODEL_BACKEND=api in production."
-        )
+if not DEBUG and ML_MODEL_BACKEND.lower() == "api" and not AI_API_URL:
+    raise ImproperlyConfigured(
+        "AI_API_URL must be set when ML_MODEL_BACKEND=api in production."
+    )
 # Optional bearer token if your FastAPI service requires authentication.
 AI_API_TOKEN = os.environ.get("AI_API_TOKEN", "").strip()
-# The skin-validation API can use a distinct token; otherwise share the
-# seven-class API token for backward compatibility with existing deployments.
-AI_SKIN_API_TOKEN = os.environ.get(
-    "AI_SKIN_API_TOKEN", AI_API_TOKEN
-).strip()
-# Per-request timeout (seconds) for each ML API call.
+# Per-request timeout (seconds) for the FastAPI /predict call.
 AI_API_TIMEOUT = int(os.environ.get("AI_API_TIMEOUT", "120"))
+
+# Skin vs Non-Skin validation API (separate from the lesion prediction API).
+# Every uploaded image — on both the Smart Photo Guide and the Skin Image
+# Prediction pages — is first sent here. The image is forwarded to the
+# lesion classifier ONLY if this service explicitly classifies it as Skin.
+# If unset, the prediction API's AI_API_URL is reused as a fallback so that
+# legacy single-service deployments keep working unchanged.
+AI_SKIN_API_URL = os.environ.get("AI_SKIN_API_URL", "").strip()
 
 # HAM10000 class -> full medical name mapping (used for display)
 HAM10000_CLASS_NAMES = {
@@ -338,6 +327,11 @@ HAM10000_CLASS_CATEGORY = {
 
 # Gemini chatbot
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# Default to gemini-2.0-flash (still supported on the free tier as of late
+# 2025). Set GEMINI_MODEL in the environment to override (e.g. to
+# gemini-2.5-flash, gemini-1.5-flash, or gemini-3.8-flash on a billing-
+# enabled project). See https://ai.google.dev/gemini-api/docs/models for the
+# current list of valid model names.
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 CHATBOT_RATE_LIMIT = os.environ.get("CHATBOT_RATE_LIMIT", "10/m")  # 10 msgs/min/user
 CHATBOT_SESSION_TTL = int(os.environ.get("CHATBOT_SESSION_TTL", "1800"))  # 30 min

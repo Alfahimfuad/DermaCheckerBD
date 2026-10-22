@@ -224,6 +224,9 @@
    * <p>. Strips every attribute (no onclick, no href, no style). Any other
    * tag is escaped — its text content is preserved but the tag itself is
    * neutralised. Defends against stored XSS via sessionStorage replay.
+   *
+   * Bare \n newlines in the bot's reply are converted to <br> because the
+   * bubble uses `white-space: normal` (which collapses newlines to spaces).
    */
   function sanitizeChatHtml(input) {
     if (input == null) return '';
@@ -240,6 +243,10 @@
       // Self-closing variant (mainly for <br>)
       s = s.replace(new RegExp('&lt;' + tag + '\\s*/?&gt;', 'gi'), '<' + tag + '>');
     });
+    // Convert bare newlines (escaped or otherwise) into <br> so the bot
+    // can use \n to force line breaks even though the bubble uses
+    // `white-space: normal`.
+    s = s.replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
     return s;
   }
 })();

@@ -32,16 +32,17 @@ a non-2xx status code; both are translated to :class:`PredictionError`.
 from __future__ import annotations
 
 import logging
-import math
 from typing import Any, Dict
-from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from django.conf import settings
 
-from apps.common.services.prediction import CLASS_ORDER, PredictionError
+from apps.common.services.prediction import PredictionError
 
 logger = logging.getLogger(__name__)
+
+SKIN_NON_SKIN_ENDPOINT = "/skin_non_skin"
+
 
 class NonSkinImageError(PredictionError):
     """Raised when the validation API classifies an upload as non-skin."""
@@ -77,11 +78,9 @@ def _skin_class_from_response(payload: Any) -> bool:
                     numeric_scores = {}
                     for score_label, score in scores.items():
                         try:
-                            value = float(score)
+                            numeric_scores[str(score_label)] = float(score)
                         except (TypeError, ValueError):
                             continue
-                        if math.isfinite(value):
-                            numeric_scores[str(score_label)] = value
                     if numeric_scores:
                         ordered = sorted(
                             numeric_scores.items(),
@@ -107,31 +106,6 @@ def _skin_class_from_response(payload: Any) -> bool:
     )
 
 
-def _resolve_skin_api_endpoint() -> str:
-    """Resolve a skin API base URL to its configured POST endpoint.
-
-    The skin-gate service exposes POST /api/check-skin. Accepting a tunnel
-    origin here is useful for Render configurations, while preserving an
-    explicitly configured endpoint path for other deployments.
-    """
-    endpoint = getattr(settings, "AI_SKIN_API_URL", "").strip()
-    if not endpoint:
-        return ""
-
-    parts = urlsplit(endpoint)
-    if parts.path in ("", "/"):
-        api_path = (
-            getattr(settings, "AI_SKIN_API_PATH", "/api/check-skin").strip()
-            or "/api/check-skin"
-        )
-        if not api_path.startswith("/"):
-            api_path = f"/{api_path}"
-        endpoint = urlunsplit(
-            (parts.scheme, parts.netloc, api_path, parts.query, parts.fragment)
-        )
-    return endpoint
-
-
 def validate_skin_image(
     image_bytes: bytes,
     filename: str = "skin_image.jpg",
@@ -139,32 +113,32 @@ def validate_skin_image(
 ) -> None:
     """Call the separate Skin/Non-Skin API before lesion prediction.
 
-    A root ``AI_SKIN_API_URL`` is resolved to ``AI_SKIN_API_PATH`` (the
-    skin-gate API's default route is ``/api/check-skin``). An explicit endpoint
-    path is used as configured. This API remains separate from ``AI_API_URL``,
-    the seven-class lesion API.
+    Uses the dedicated ``AI_SKIN_API_URL`` setting so the skin classifier
+    can run on a different host than the lesion predictor. When that setting
+    is empty (legacy deployments), it transparently falls back to
+    ``AI_API_URL`` so a single-service setup keeps working.
+
+    The lesion classifier's bearer token and timeout settings are reused;
+    the predictor's ``/predict`` endpoint and response contract are not
+    changed.
     """
-    endpoint = _resolve_skin_api_endpoint()
-    if not endpoint:
+    skin_api_url = getattr(settings, "AI_SKIN_API_URL", "").strip()
+    if not skin_api_url:
+        # Legacy single-service fallback: reuse the prediction API URL.
+        skin_api_url = getattr(settings, "AI_API_URL", "").strip()
+    if not skin_api_url:
         raise PredictionError("The skin validation service is not configured.")
 
-    file_field = (
-        getattr(settings, "AI_SKIN_API_FILE_FIELD", "file").strip() or "file"
-    )
+    url = f"{skin_api_url.rstrip('/')}{SKIN_NON_SKIN_ENDPOINT}"
     headers = {}
-    skin_api_token = getattr(
-        settings,
-        "AI_SKIN_API_TOKEN",
-        getattr(settings, "AI_API_TOKEN", ""),
-    ).strip() or getattr(settings, "AI_API_TOKEN", "").strip()
-    if skin_api_token:
-        headers["Authorization"] = f"Bearer {skin_api_token}"
+    if getattr(settings, "AI_API_TOKEN", "").strip():
+        headers["Authorization"] = f"Bearer {settings.AI_API_TOKEN.strip()}"
 
     try:
         response = requests.post(
-            endpoint,
+            url,
             files={
-                file_field: (
+                "file": (
                     filename or "skin_image.jpg",
                     image_bytes,
                     content_type or "image/jpeg",
@@ -276,57 +250,17 @@ def predict_skin_image(image_file) -> Dict[str, Any]:
             "The prediction service returned an invalid response."
         ) from exc
 
-    if not isinstance(result, dict):
-        logger.warning("FastAPI /predict returned a non-object JSON response.")
-        raise PredictionError(
-            "The prediction service returned an invalid response."
-        )
-
     if not result.get("success"):
         upstream_msg = result.get("error") or "Prediction failed on the FastAPI side."
         logger.warning("FastAPI /predict returned success=False: %s", upstream_msg)
         raise PredictionError(upstream_msg)
 
-    predicted_class = str(result.get("predicted_class") or "").strip().lower()
-    if predicted_class not in CLASS_ORDER:
-        logger.warning(
-            "FastAPI /predict returned an unsupported class: %r", predicted_class
-        )
-        raise PredictionError(
-            "The prediction service returned an unsupported class."
-        )
-
-    raw_probabilities = result.get("probabilities")
-    if (
-        not isinstance(raw_probabilities, dict)
-        or set(raw_probabilities) != set(CLASS_ORDER)
-    ):
-        logger.warning(
-            "FastAPI /predict did not return probabilities for all configured "
-            "classes: %r",
-            raw_probabilities,
-        )
+    # Validate the minimum required fields so the caller can rely on the
+    # shape without re-checking.
+    if "probabilities" not in result or not isinstance(result["probabilities"], dict):
+        logger.warning("FastAPI /predict missing 'probabilities' dict: %r", result)
         raise PredictionError(
             "The prediction service returned an incomplete response."
         )
 
-    probabilities = {}
-    for class_code in CLASS_ORDER:
-        try:
-            probability = float(raw_probabilities[class_code])
-        except (TypeError, ValueError):
-            probability = math.nan
-        if not math.isfinite(probability) or probability < 0:
-            logger.warning(
-                "FastAPI /predict returned an invalid probability for %s.",
-                class_code,
-            )
-            raise PredictionError(
-                "The prediction service returned invalid probabilities."
-            )
-        probabilities[class_code] = probability
-
-    result = dict(result)
-    result["predicted_class"] = predicted_class
-    result["probabilities"] = probabilities
     return result

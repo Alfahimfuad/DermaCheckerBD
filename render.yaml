@@ -66,15 +66,9 @@ services:
       # API 2: Skin vs Non-Skin Validation
       - key: AI_SKIN_API_URL
         sync: false
-      - key: AI_SKIN_API_PATH
-        value: /api/check-skin
-      - key: AI_SKIN_API_FILE_FIELD
-        value: file
 
       # API Authentication (if required)
       - key: AI_API_TOKEN
-        sync: false
-      - key: AI_SKIN_API_TOKEN
         sync: false
 
       # Request Timeout
