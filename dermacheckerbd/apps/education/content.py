@@ -417,9 +417,14 @@ LIBRARY_ARTICLES = {
     "abcde-rule": {
         "slug": "abcde-rule",
         "title": "The ABCDE rule for spotting melanoma",
+        "bangla_title": "মেলানোমা শনাক্তকরণের ABCDE নিয়ম",
         "summary": (
             "A simple five-point checklist dermatologists teach patients to "
             "self-screen moles for warning signs of melanoma."
+        ),
+        "bangla_summary": (
+            "ডার্মাটোলজিস্টরা রোগীদের শেখানো একটি সহজ পাঁচ-ধাপের চেকলিস্ট, "
+            "যা মেলানোমার সতর্ক লক্ষণগুলো নিজে পরীক্ষা করতে সাহায্য করে।"
         ),
         "icon": "alert-triangle",
         "body": [
@@ -500,9 +505,14 @@ LIBRARY_ARTICLES = {
     "sun-protection": {
         "slug": "sun-protection",
         "title": "Sun protection: the single most important skin-cancer prevention habit",
+        "bangla_title": "সূর্য সুরক্ষা: ত্বকের ক্যান্সার প্রতিরোধের সবচেয়ে গুরুত্বপূর্ণ অভ্যাস",
         "summary": (
             "UV exposure is the leading modifiable risk factor for skin "
             "cancer. Practical, evidence-based sun-protection habits."
+        ),
+        "bangla_summary": (
+            "অতিরিক্ত সূর্যালোক ত্বকের ক্যান্সারের প্রধান পরিবর্তনযোগ্য কারণ। "
+            "বাস্তবসম্মত ও বিজ্ঞান-ভিত্তিক সূর্য সুরক্ষা অভ্যাস।"
         ),
         "icon": "sun",
         "body": [
@@ -577,9 +587,14 @@ LIBRARY_ARTICLES = {
     "self-exam": {
         "slug": "self-exam",
         "title": "How to perform a monthly skin self-examination",
+        "bangla_title": "মাসিক ত্বক স্ব-পরীক্ষা যেভাবে করবেন",
         "summary": (
             "A 10-minute monthly routine that catches new and changing "
             "lesions early — when treatment is most effective."
+        ),
+        "bangla_summary": (
+            "মাত্র ১০ মিনিটের মাসিক রুটিন, যা নতুন ও পরিবর্তনশীল ত্বকের দাগ "
+            "শীঘ্রই ধরতে সাহায্য করে—যখন চিকিৎসা সবচেয়ে কার্যকর।"
         ),
         "icon": "search",
         "body": [
@@ -652,9 +667,14 @@ LIBRARY_ARTICLES = {
     "when-to-see-doctor": {
         "slug": "when-to-see-doctor",
         "title": "When to see a dermatologist",
+        "bangla_title": "কখন ডার্মাটোলজিস্ট দেখাবেন",
         "summary": (
             "Clear, situation-specific guidance on when a lesion "
             "warrants professional review — and how soon."
+        ),
+        "bangla_summary": (
+            "কখন কোনো ত্বকের দাগ পেশাদার পরীক্ষা প্রয়োজন—এবং কত দ্রুত—তার "
+            "স্পষ্ট, পরিস্থিতিভিত্তিক নির্দেশিকা।"
         ),
         "icon": "stethoscope",
         "body": [

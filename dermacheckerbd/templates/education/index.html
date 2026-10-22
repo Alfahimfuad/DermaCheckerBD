@@ -39,7 +39,15 @@
               </div>
               <h3 class="feature-title" data-i18n="class-name.{{ c.code }}">{{ c.short_name }}</h3>
               <p class="text-muted small mb-2" lang="bn">{{ c.bangla_name }}</p>
-              <p class="feature-desc">{{ c.overview|truncatewords:22 }}</p>
+              {# Render the Bangla summary when the user's language cookie is
+                 'bn', otherwise fall back to the English overview. The
+                 client-side i18n layer (main.js) only swaps [data-i18n]
+                 textContent, so we choose the language server-side here. #}
+              {% if ui_language == 'bn' and c.bangla_summary %}
+                <p class="feature-desc" lang="bn">{{ c.bangla_summary }}</p>
+              {% else %}
+                <p class="feature-desc">{{ c.overview|truncatewords:22 }}</p>
+              {% endif %}
               <p class="education-image-caption" data-i18n="edu.class_image_caption">Example only — not a diagnosis.</p>
               <span class="feature-link" data-i18n="edu.read_more">Read more</span> <i data-lucide="arrow-right" style="width:14px;height:14px;"></i>
             </div>
@@ -65,8 +73,12 @@
               <div class="feature-icon">
                 <i data-lucide="{{ a.icon }}"></i>
               </div>
-              <h3 class="feature-title">{{ a.title }}</h3>
-              <p class="feature-desc">{{ a.summary }}</p>
+              <h3 class="feature-title" lang="{% if ui_language == 'bn' and a.bangla_title %}bn{% else %}en{% endif %}">
+                {% if ui_language == 'bn' and a.bangla_title %}{{ a.bangla_title }}{% else %}{{ a.title }}{% endif %}
+              </h3>
+              <p class="feature-desc" lang="{% if ui_language == 'bn' and a.bangla_summary %}bn{% else %}en{% endif %}">
+                {% if ui_language == 'bn' and a.bangla_summary %}{{ a.bangla_summary }}{% else %}{{ a.summary }}{% endif %}
+              </p>
               <span class="feature-link" data-i18n="edu.read_article">Read article</span> <i data-lucide="arrow-right" style="width:14px;height:14px;"></i>
             </a>
           </div>
