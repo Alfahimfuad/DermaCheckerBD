@@ -327,11 +327,6 @@ HAM10000_CLASS_CATEGORY = {
 
 # Gemini chatbot
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-# Default to gemini-2.0-flash (still supported on the free tier as of late
-# 2025). Set GEMINI_MODEL in the environment to override (e.g. to
-# gemini-2.5-flash, gemini-1.5-flash, or gemini-3.8-flash on a billing-
-# enabled project). See https://ai.google.dev/gemini-api/docs/models for the
-# current list of valid model names.
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 CHATBOT_RATE_LIMIT = os.environ.get("CHATBOT_RATE_LIMIT", "10/m")  # 10 msgs/min/user
 CHATBOT_SESSION_TTL = int(os.environ.get("CHATBOT_SESSION_TTL", "1800"))  # 30 min

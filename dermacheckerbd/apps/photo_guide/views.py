@@ -98,7 +98,6 @@ def quality_check_view(request):
     report = None
     wrong = None
     error = None
-    non_skin_error = False
     image_data_url = None
     enhanced_data_url = None
     prediction_data_url = None
@@ -144,10 +143,6 @@ def quality_check_view(request):
                     "Please upload a skin image only. The uploaded image "
                     "does not appear to contain skin."
                 )
-                # Surfaced as a flag so the client can flip the shared
-                # prediction overlay into its animated Non-Skin state
-                # instead of rendering the plain red banner.
-                non_skin_error = True
             except PredictionError:
                 logger.exception("Skin/non-skin validation failed.")
                 error = (
@@ -217,7 +212,6 @@ def quality_check_view(request):
             "report": report,
             "wrong_input": wrong,
             "error": error,
-            "non_skin_error": non_skin_error,
             "image_data_url": image_data_url,
             "customizer_data_url": customizer_data_url,
             "enhanced_data_url": enhanced_data_url,

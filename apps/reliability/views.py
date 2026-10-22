@@ -11,8 +11,10 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
+from apps.common.services.ai_api import NonSkinImageError, validate_skin_image
 from apps.common.services.calibration import CalibrationService
 from apps.common.services.reliability import ReliabilityService
+from apps.common.services.prediction import PredictionError
 from apps.common.services.wrong_input import WrongInputService
 from apps.predictor.models import PredictionRecord
 
@@ -44,6 +46,8 @@ def check_view(request):
     image_data_url = None
 
     image_bytes = None
+    skin_validation_filename = "skin_image.jpg"
+    skin_validation_content_type = "image/jpeg"
     if request.method == "POST":
         uploaded = request.FILES.get("image")
         if uploaded is None:
@@ -54,6 +58,8 @@ def check_view(request):
             error = "File too large. Max 10 MB."
         else:
             image_bytes = uploaded.read()
+            skin_validation_filename = uploaded.name
+            skin_validation_content_type = uploaded.content_type
     elif request.GET.get("reference_id"):
         record = get_object_or_404(
             PredictionRecord, reference_id=request.GET["reference_id"]
@@ -75,6 +81,8 @@ def check_view(request):
             error = "The saved image is not available for a reliability check."
         if image_bytes is not None and len(image_bytes) > MAX_BYTES:
             error = "File too large. Max 10 MB."
+        elif image_bytes is not None:
+            skin_validation_filename = record.image.name.rsplit("/", 1)[-1]
 
     if image_bytes is not None and not error:
         wrong, pil_image = WrongInputService.validate_bytes(image_bytes)
@@ -82,8 +90,21 @@ def check_view(request):
             error = wrong.warning
         else:
             try:
+                validate_skin_image(
+                    image_bytes,
+                    filename=skin_validation_filename,
+                    content_type=skin_validation_content_type,
+                )
                 report = ReliabilityService.assess_pil(pil_image)
                 image_data_url = _pil_to_data_url(pil_image)
+            except NonSkinImageError:
+                error = "This image was classified as non-skin."
+            except PredictionError:
+                logger.exception("Skin validation failed for reliability upload.")
+                error = (
+                    "Skin validation could not be completed. "
+                    "Please try again later."
+                )
             except Exception as e:
                 logger.warning("Reliability check failed: %s", e)
                 error = "Could not run reliability check. Please try again."

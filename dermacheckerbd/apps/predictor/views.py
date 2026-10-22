@@ -140,10 +140,6 @@ def _handle_upload(request):
                 "Please upload a skin image only. The uploaded image does "
                 "not appear to contain skin."
             ),
-            # Surfaced as a JSON-encodable flag so the client can flip the
-            # shared prediction overlay into its animated Non-Skin state
-            # instead of rendering the plain red banner.
-            "non_skin_error": True,
         })
     except PredictionError:
         logger.exception("Skin/non-skin validation failed.")

@@ -11,6 +11,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from apps.common.services.multi_image import MultiImageService
+from apps.common.services.ai_api import NonSkinImageError, validate_skin_image
 from apps.common.services.prediction import PredictionError
 from apps.common.services.wrong_input import WrongInputService
 
@@ -46,6 +47,22 @@ def compare_view(request):
                     error = f"{f.name} is too large. Max 10 MB."
                     break
                 raw = f.read()
+                try:
+                    validate_skin_image(
+                        raw,
+                        filename=f.name,
+                        content_type=f.content_type,
+                    )
+                except NonSkinImageError:
+                    error = f"{f.name}: this image was classified as non-skin."
+                    break
+                except PredictionError:
+                    logger.exception("Skin validation failed for multi-image upload.")
+                    error = (
+                        "Skin validation could not be completed. "
+                        "Please try again later."
+                    )
+                    break
                 wrong, pil = WrongInputService.validate_bytes(raw)
                 if not wrong.is_valid_image or not pil:
                     error = f"{f.name}: {wrong.warning}"

@@ -11,10 +11,8 @@ from PIL import Image as PILImage
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from apps.common.services.ai_api import NonSkinImageError, validate_skin_image
 from apps.common.services.enhancement import ImageEnhancementService
 from apps.common.services.image_quality import ImageQualityService
-from apps.common.services.prediction import PredictionError
 from apps.common.services.wrong_input import WrongInputService
 
 logger = logging.getLogger(__name__)
@@ -98,7 +96,6 @@ def quality_check_view(request):
     report = None
     wrong = None
     error = None
-    non_skin_error = False
     image_data_url = None
     enhanced_data_url = None
     prediction_data_url = None
@@ -127,88 +124,60 @@ def quality_check_view(request):
 
         else:
             image_bytes = uploaded.read()
-            # Gate every upload through the separate Skin/Non-Skin API
-            # BEFORE any quality check or enhancement preview runs. The
-            # Smart Photo Guide must never process a non-skin image
-            # (e.g. a landscape, screenshot, or document) — stopping
-            # here keeps the workflow consistent with the Skin Image
-            # Prediction page and protects downstream services.
-            try:
-                validate_skin_image(
-                    image_bytes,
-                    filename=uploaded.name,
-                    content_type=uploaded.content_type,
-                )
-            except NonSkinImageError:
-                error = (
-                    "Please upload a skin image only. The uploaded image "
-                    "does not appear to contain skin."
-                )
-                # Surfaced as a flag so the client can flip the shared
-                # prediction overlay into its animated Non-Skin state
-                # instead of rendering the plain red banner.
-                non_skin_error = True
-            except PredictionError:
-                logger.exception("Skin/non-skin validation failed.")
-                error = (
-                    "Image validation could not be completed. Please try "
-                    "again later."
-                )
+            wrong, pil_image = WrongInputService.validate_bytes(image_bytes)
+
+            if not wrong.is_valid_image or not pil_image:
+                # Surface wrong_input.warning even when the image is
+                # technically readable but doesn't look like skin
+                # (looks_like_skin=False). Previously dropped silently.
+                error = wrong.warning
+
             else:
-                wrong, pil_image = WrongInputService.validate_bytes(image_bytes)
+                try:
+                    report = ImageQualityService.assess_pil(pil_image)
+                    image_data_url = _pil_to_data_url(pil_image)
 
-                if not wrong.is_valid_image or not pil_image:
-                    # Surface wrong_input.warning even when the image is
-                    # technically readable but doesn't look like skin
-                    # (looks_like_skin=False). Previously dropped silently.
-                    error = wrong.warning
+                    # Preserve the exact uploaded file for prediction when no
+                    # enhancement is selected. Re-encoding every upload as a
+                    # JPEG here can change an otherwise valid image before it
+                    # reaches the configured prediction backend.
+                    prediction_data_url = (
+                        f"data:{uploaded.content_type};base64,"
+                        f"{base64.b64encode(image_bytes).decode('ascii')}"
+                    )
 
-                else:
-                    try:
-                        report = ImageQualityService.assess_pil(pil_image)
-                        image_data_url = _pil_to_data_url(pil_image)
+                    # Apply mild enhancement only when needed; show side-by-side
+                    enhanced_pil, enhancement_report = (
+                        ImageEnhancementService.enhance_if_needed(pil_image)
+                    )
 
-                        # Preserve the exact uploaded file for prediction when no
-                        # enhancement is selected. Re-encoding every upload as a
-                        # JPEG here can change an otherwise valid image before it
-                        # reaches the configured prediction backend.
-                        prediction_data_url = (
-                            f"data:{uploaded.content_type};base64,"
-                            f"{base64.b64encode(image_bytes).decode('ascii')}"
+                    if enhancement_report.applied:
+                        enhanced_data_url = _pil_to_data_url(enhanced_pil)
+                        prediction_image = enhanced_pil
+
+                        # Keep automatic enhancement as the default prediction
+                        # image when the user does not customize it.
+                        # The customizer can use the same full-resolution source.
+                        prediction_data_url = _pil_to_data_url(
+                            prediction_image,
+                            max_dim=None,
+                            quality=88,
+                            max_bytes=MAX_BYTES - 64 * 1024,
                         )
 
-                        # Apply mild enhancement only when needed; show side-by-side
-                        enhanced_pil, enhancement_report = (
-                            ImageEnhancementService.enhance_if_needed(pil_image)
+                        customizer_data_url = prediction_data_url
+
+                    else:
+                        customizer_data_url = _pil_to_data_url(
+                            pil_image,
+                            max_dim=None,
+                            quality=88,
+                            max_bytes=MAX_BYTES - 64 * 1024,
                         )
 
-                        if enhancement_report.applied:
-                            enhanced_data_url = _pil_to_data_url(enhanced_pil)
-                            prediction_image = enhanced_pil
-
-                            # Keep automatic enhancement as the default prediction
-                            # image when the user does not customize it.
-                            # The customizer can use the same full-resolution source.
-                            prediction_data_url = _pil_to_data_url(
-                                prediction_image,
-                                max_dim=None,
-                                quality=88,
-                                max_bytes=MAX_BYTES - 64 * 1024,
-                            )
-
-                            customizer_data_url = prediction_data_url
-
-                        else:
-                            customizer_data_url = _pil_to_data_url(
-                                pil_image,
-                                max_dim=None,
-                                quality=88,
-                                max_bytes=MAX_BYTES - 64 * 1024,
-                            )
-
-                    except Exception as e:
-                        logger.warning("Quality check failed: %s", e)
-                        error = f"Could not assess image: {e}"
+                except Exception as e:
+                    logger.warning("Quality check failed: %s", e)
+                    error = f"Could not assess image: {e}"
 
     return render(
         request,
@@ -217,7 +186,6 @@ def quality_check_view(request):
             "report": report,
             "wrong_input": wrong,
             "error": error,
-            "non_skin_error": non_skin_error,
             "image_data_url": image_data_url,
             "customizer_data_url": customizer_data_url,
             "enhanced_data_url": enhanced_data_url,

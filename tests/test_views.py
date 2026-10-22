@@ -31,6 +31,11 @@ User = get_user_model()
 class MultiImageComparisonViewTests(TestCase):
     def setUp(self):
         PredictionService.reset()
+        self.skin_validation_patcher = patch(
+            "apps.multi_image.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
 
     @staticmethod
     def upload(seed, name):
@@ -79,6 +84,24 @@ class MultiImageComparisonViewTests(TestCase):
         self.assertIsNone(response.context["report"])
         self.assertContains(response, "Could not compare images: Prediction failed for image 1.")
         self.assertNotContains(response, "private model path")
+
+    def test_non_skin_image_is_rejected_before_multi_image_prediction(self):
+        from apps.common.services.ai_api import NonSkinImageError
+
+        with patch(
+            "apps.multi_image.views.validate_skin_image",
+            side_effect=NonSkinImageError,
+        ), patch("apps.multi_image.views.MultiImageService.compare_pil") as compare:
+            response = self.client.post("/multi/", {
+                "images": [
+                    self.upload(73, "first.jpg"),
+                    self.upload(74, "second.jpg"),
+                ],
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "classified as non-skin")
+        compare.assert_not_called()
 
 
 class HowItWorksPageTests(TestCase):
@@ -156,11 +179,7 @@ class UploadPagePrivacyTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Supported lesion categories")
-        # The 5-stage overlay now mentions "7 supported categories" inside
-        # the ResNet50 stage subtitle instead of the old generic
-        # "Across 7 supported categories" caption. Either way, the page
-        # must surface the count without leaking the HAM10000 dataset name.
-        self.assertContains(response, "7 supported categories")
+        self.assertContains(response, "Across 7 supported categories")
         self.assertNotContains(response, "HAM10000")
 
 
@@ -264,7 +283,7 @@ class UploadAndPredictionTests(TestCase):
         self.skin_validation_patcher = patch(
             "apps.predictor.views.validate_skin_image"
         )
-        self.skin_validation_patcher.start()
+        self.skin_validator = self.skin_validation_patcher.start()
         self.addCleanup(self.skin_validation_patcher.stop)
         self.user = User.objects.create_user(username="bob", password="Pass!2024")
         self.c = Client()
@@ -286,6 +305,7 @@ class UploadAndPredictionTests(TestCase):
         })
         self.assertEqual(r.status_code, 302)
         self.assertIn("/predict/result/", r["Location"])
+        self.skin_validator.assert_called_once()
 
         # Verify record was saved
         self.assertTrue(PredictionRecord.objects.filter(user=self.user).exists())
@@ -311,15 +331,7 @@ class UploadAndPredictionTests(TestCase):
             response = self.c.post("/predict/", {"image": upload})
 
         self.assertEqual(response.status_code, 200)
-        # The animated Non-Skin overlay state is enabled via #nonSkinFlag,
-        # which the client JS reads to flip the shared overlay. The plain
-        # red medical-disclaimer banner is suppressed on this branch.
-        self.assertContains(response, 'id="nonSkinFlag"')
-        self.assertContains(response, 'data-non-skin="true"')
-        self.assertContains(response, "does not appear to contain skin")
-        # The shared overlay must include the animated Non-Skin panel.
-        self.assertContains(response, "Non-Skin Image Detected")
-        self.assertContains(response, "ResNet50 classification was not performed.")
+        self.assertContains(response, "classified as non-skin")
         lesion_predict.assert_not_called()
         self.assertFalse(PredictionRecord.objects.filter(user=self.user).exists())
 
@@ -429,15 +441,6 @@ class UploadAndPredictionTests(TestCase):
 class PhotoGuidePredictionHandoffTests(TestCase):
     def setUp(self):
         PredictionService.reset()
-        # Both pages gate uploads on validate_skin_image — patch BOTH the
-        # photo_guide view and the predictor view so the end-to-end
-        # Photo Guide -> Prediction handoff works without making real HTTP
-        # calls to the skin classifier.
-        self.photo_guide_skin_patcher = patch(
-            "apps.photo_guide.views.validate_skin_image"
-        )
-        self.photo_guide_skin_patcher.start()
-        self.addCleanup(self.photo_guide_skin_patcher.stop)
         self.skin_validation_patcher = patch(
             "apps.predictor.views.validate_skin_image"
         )
@@ -558,85 +561,6 @@ class TrackerPrivacyTests(TestCase):
 
 
 class PhotoGuideHandoffTests(TestCase):
-    def setUp(self):
-        # Photo Guide now gates every upload through validate_skin_image
-        # before running the quality check. Patch it as a no-op so the
-        # downstream quality / enhancement / handoff code path is exercised
-        # without making a real HTTP call to the skin classifier.
-        self.skin_validation_patcher = patch(
-            "apps.photo_guide.views.validate_skin_image"
-        )
-        self.skin_validation_patcher.start()
-        self.addCleanup(self.skin_validation_patcher.stop)
-
-    def test_non_skin_upload_is_rejected_before_quality_check(self):
-        """Smart Photo Guide must stop a non-skin image before the quality
-        check, the enhancement preview, or any prediction handoff runs."""
-        from apps.common.services.ai_api import NonSkinImageError
-
-        image = make_skin_image(seed=72, size=(300, 300))
-        upload = SimpleUploadedFile(
-            "landscape.jpg",
-            image_to_jpeg_bytes(image),
-            content_type="image/jpeg",
-        )
-        with (
-            patch(
-                "apps.photo_guide.views.validate_skin_image",
-                side_effect=NonSkinImageError,
-            ),
-            patch(
-                "apps.photo_guide.views.ImageQualityService.assess_pil"
-            ) as quality_check,
-            patch(
-                "apps.photo_guide.views.ImageEnhancementService.enhance_if_needed"
-            ) as enhance,
-        ):
-            response = self.client.post("/quality/", {"image": upload})
-
-        self.assertEqual(response.status_code, 200)
-        # The animated Non-Skin overlay state is enabled via #nonSkinFlag,
-        # which the client JS reads to flip the shared overlay. The plain
-        # red medical-disclaimer banner is suppressed on this branch.
-        self.assertContains(response, 'id="nonSkinFlag"')
-        self.assertContains(response, 'data-non-skin="true"')
-        self.assertContains(response, "does not appear to contain skin")
-        # The shared overlay must include the animated Non-Skin panel.
-        self.assertContains(response, "Non-Skin Image Detected")
-        self.assertContains(response, "ResNet50 classification was not performed.")
-        # Quality + enhancement must never run for a non-skin image.
-        quality_check.assert_not_called()
-        enhance.assert_not_called()
-        # The Run Prediction handoff button must not be rendered as a
-        # clickable element. The template's <script> block keeps a JS
-        # reference to the element ID regardless of whether it is in the
-        # DOM, so we check for the actual <button id="runPredictionButton">
-        # tag rather than the bare ID string.
-        self.assertNotContains(response, 'id="runPredictionButton"')
-
-    def test_overlay_lists_five_pipeline_stages_in_order(self):
-        """The shared prediction overlay must list the 5 stages that
-        match the actual server-side pipeline order: Preparing input →
-        Skin vs Non-Skin → ResNet50 → Probabilities → Report."""
-        response = self.client.get("/quality/")
-        self.assertEqual(response.status_code, 200)
-        stages = re.findall(
-            r'data-stage="(\d)"[^>]*>.*?<strong[^>]*>([^<]+)</strong>',
-            response.content.decode(),
-            re.DOTALL,
-        )
-        self.assertEqual(
-            [int(num) for num, _ in stages],
-            [1, 2, 3, 4, 5],
-            "overlay must render exactly 5 stages in order",
-        )
-        titles = [title for _, title in stages]
-        self.assertIn("Preparing image input", titles)
-        self.assertIn("Checking Skin vs Non-Skin", titles)
-        self.assertIn("Running ResNet50 classification", titles)
-        self.assertIn("Calculating prediction probabilities", titles)
-        self.assertIn("Preparing your report", titles)
-
     def test_enhanced_preview_is_handed_to_prediction_as_the_uploaded_file(self):
         original = make_skin_image(seed=41, size=(300, 300))
         enhanced = Image.new("RGB", (300, 300), (45, 90, 150))
@@ -864,17 +788,19 @@ class PhotoGuideHandoffTests(TestCase):
             re.DOTALL,
         )
         self.assertIsNotNone(button)
-        # HTML-unescape the captured text so "Run prediction &amp; analyze"
-        # in the markup compares equal to its plain-text form.
-        import html as _html
-        button_text = _html.unescape(re.sub(r"<[^>]+>", "", button.group(1))).strip()
-        self.assertEqual(button_text, "Run prediction & analyze")
+        button_text = re.sub(r"<[^>]+>", "", button.group(1)).strip()
+        self.assertEqual(button_text, "Run prediction on this image")
         self.assertNotIn("Preparing image", button_text)
 
 
 @override_settings(ML_MODEL_BACKEND="mock")
 class ReliabilityPageTests(TestCase):
     def setUp(self):
+        self.skin_validation_patcher = patch(
+            "apps.reliability.views.validate_skin_image"
+        )
+        self.skin_validation_patcher.start()
+        self.addCleanup(self.skin_validation_patcher.stop)
         self.owner = User.objects.create_user(username="reliability-owner")
         self.client = Client()
         self.client.force_login(self.owner)
@@ -921,6 +847,23 @@ class ReliabilityPageTests(TestCase):
         assess.assert_called_once()
         self.assertContains(response, "Original prediction")
         self.assertContains(response, 'id="reliabilitySubmit"')
+
+    def test_reliability_page_rejects_non_skin_before_prediction(self):
+        from apps.common.services.ai_api import NonSkinImageError
+
+        with patch(
+            "apps.reliability.views.validate_skin_image",
+            side_effect=NonSkinImageError,
+        ), patch(
+            "apps.reliability.views.ReliabilityService.assess_pil"
+        ) as assess:
+            response = self.client.get(
+                "/reliability/?reference_id=RELTEST01"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "classified as non-skin")
+        assess.assert_not_called()
 
     def test_reliability_page_rejects_missing_upload(self):
         response = self.client.post("/reliability/", {})

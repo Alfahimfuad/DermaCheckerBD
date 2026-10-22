@@ -11,19 +11,11 @@
     <p class="text-muted" data-i18n="pg.subtitle">Check image quality first, then optionally continue to a separate prediction.</p>
     <hr class="my-4">
 
-    {% if error and not non_skin_error %}
+    {% if error %}
       <div class="medical-disclaimer mb-4">
         <strong><i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:-2px;"></i> <span data-i18n="common.upload_rejected">Upload rejected</span></strong>
         <p class="mb-0" data-i18n-server>{{ error }}</p>
       </div>
-    {% endif %}
-
-    {# Non-skin uploads surface as an animated overlay state instead of a
-       plain red banner. The overlay markup lives in
-       _prediction_overlay.html; we just flip its data-state to "non-skin"
-       on DOMContentLoaded via the script at the bottom of this page. #}
-    {% if non_skin_error %}
-      <div id="nonSkinFlag" data-non-skin="true" hidden></div>
     {% endif %}
 
     <div class="row g-4">
@@ -339,7 +331,6 @@
       isSubmitting = false;
       overlay.hidden = true;
       overlay.setAttribute('aria-hidden', 'true');
-      overlay.dataset.state = 'loading';
       document.body.style.overflow = '';
       if (scanImage) {
         scanImage.removeAttribute('src');
@@ -362,18 +353,6 @@
       transferError.hidden = false;
     }
 
-    // Cadence (ms) at which the 5-stage overlay advances on the Smart
-    // Photo Guide's "Run prediction & analyze" handoff. The cadence is
-    // purely illustrative — the overlay is removed the moment the fetch
-    // resolves (success → redirect, non-skin → flip state, error
-    // → transferError banner).
-    // 0ms:    stage 1 active (Preparing image input)
-    // 1500ms: stage 2 active (Checking Skin vs Non-Skin)
-    // 3000ms: stage 3 active (Running ResNet50 classification)
-    // 5500ms: stage 4 active (Calculating prediction probabilities)
-    // 8000ms: stage 5 active (Preparing your report) — stays active
-    var STAGE_DELAYS = [0, 1500, 3000, 5500, 8000];
-
     function startPredictionProgress() {
       isSubmitting = true;
       if (scanImage) {
@@ -382,45 +361,13 @@
       }
       overlay.hidden = false;
       overlay.setAttribute('aria-hidden', 'false');
-      overlay.dataset.state = 'loading';
       document.body.style.overflow = 'hidden';
-      // Reset all stages, mark stage 1 as active.
-      stages.forEach(function (stage, index) {
-        stage.classList.remove('is-active', 'is-done');
-        if (index === 0) stage.classList.add('is-active');
-      });
-      // Advance subsequent stages on the cadence above.
-      for (var i = 1; i < stages.length; i++) {
-        (function (idx) {
-          stageTimers.push(setTimeout(function () {
-            stages[idx - 1].classList.remove('is-active');
-            stages[idx - 1].classList.add('is-done');
-            stages[idx].classList.add('is-active');
-          }, STAGE_DELAYS[idx]));
-        })(i);
-      }
-    }
-
-    function showNonSkinOverlay() {
-      // Flip the shared overlay into its animated Non-Skin state. The
-      // 5-stage stepper is hidden by CSS and the "Non-Skin Image
-      // Detected" panel appears in its place. The fetch below has
-      // already returned; the backend never invoked ResNet50.
-      stageTimers.forEach(clearTimeout);
-      stageTimers = [];
-      overlay.hidden = false;
-      overlay.setAttribute('aria-hidden', 'false');
-      overlay.dataset.state = 'non-skin';
-      isSubmitting = false;
-      if (runButton) runButton.disabled = false;
-    }
-
-    // The dismiss button inside the non-skin overlay resets everything
-    // back to the Smart Photo Guide's empty upload form.
-    var dismissBtn = overlay.querySelector('[data-overlay-dismiss]');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', function () {
-        resetPredictionProgress();
+      [1500, 3000, 5500].forEach(function (delay, index) {
+        stageTimers.push(setTimeout(function () {
+          stages[index].classList.remove('is-active');
+          stages[index].classList.add('is-done');
+          stages[index + 1].classList.add('is-active');
+        }, delay));
       });
     }
 
@@ -466,22 +413,12 @@
           });
           clearTimeout(timeout);
           if (response.redirected) {
-            // Successful prediction → predictor:result page.
             window.location.assign(response.url);
             return;
           }
 
           var responseHtml = await response.text();
           var responseDocument = new DOMParser().parseFromString(responseHtml, 'text/html');
-          // The predictor view emits #nonSkinFlag data-non-skin="true"
-          // when the upload was rejected as Non-Skin. In that case, flip
-          // the shared overlay into its animated Non-Skin state instead
-          // of treating it as a generic transfer error.
-          var nonSkinFlag = responseDocument.querySelector('#nonSkinFlag[data-non-skin="true"]');
-          if (nonSkinFlag) {
-            showNonSkinOverlay();
-            return;
-          }
           var serverMessage = responseDocument.querySelector('.medical-disclaimer [data-i18n-server]')
             || responseDocument.querySelector('.medical-disclaimer p');
           resetPredictionProgress();
@@ -498,14 +435,6 @@
               : 'Image upload failed. Check your connection and try again.'));
         }
       });
-    }
-
-    // If the server just rendered THIS page in response to a non-skin
-    // upload (synchronous POST → 200 with `non_skin_error=True`), flip
-    // the shared overlay into its animated Non-Skin state immediately.
-    var nonSkinFlag = document.getElementById('nonSkinFlag');
-    if (nonSkinFlag && nonSkinFlag.getAttribute('data-non-skin') === 'true') {
-      showNonSkinOverlay();
     }
   });
 </script>

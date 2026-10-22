@@ -56,27 +56,27 @@
       <div class="col-lg-8">
         <div class="app-card mb-4">
           <h2 class="h5 mb-3"><i data-lucide="file-text" style="width:18px;height:18px;" class="me-2"></i><span data-i18n="edu.overview">Overview</span></h2>
-          <p lang="{% if ui_language == 'bn' and info.bangla_overview %}bn{% else %}en{% endif %}">{% if ui_language == 'bn' and info.bangla_overview %}{{ info.bangla_overview }}{% else %}{{ info.overview }}{% endif %}</p>
+          <p>{{ info.overview }}</p>
         </div>
 
         <div class="app-card mb-4">
           <h2 class="h5 mb-3"><i data-lucide="eye" style="width:18px;height:18px;" class="me-2"></i><span data-i18n="edu.appearance">Typical appearance</span></h2>
-          <p lang="{% if ui_language == 'bn' and info.bangla_appearance %}bn{% else %}en{% endif %}">{% if ui_language == 'bn' and info.bangla_appearance %}{{ info.bangla_appearance }}{% else %}{{ info.appearance }}{% endif %}</p>
+          <p>{{ info.appearance }}</p>
         </div>
 
         <div class="app-card mb-4">
           <h2 class="h5 mb-3"><i data-lucide="alert-circle" style="width:18px;height:18px;" class="me-2"></i><span data-i18n="edu.symptoms">Common symptoms &amp; warning signs</span></h2>
-          <p lang="{% if ui_language == 'bn' and info.bangla_symptoms %}bn{% else %}en{% endif %}">{% if ui_language == 'bn' and info.bangla_symptoms %}{{ info.bangla_symptoms }}{% else %}{{ info.symptoms }}{% endif %}</p>
+          <p>{{ info.symptoms }}</p>
         </div>
 
         <div class="app-card mb-4">
           <h2 class="h5 mb-3"><i data-lucide="heart" style="width:18px;height:18px;" class="me-2"></i><span data-i18n="edu.care">Skin care &amp; sun protection</span></h2>
-          <p lang="{% if ui_language == 'bn' and info.bangla_care %}bn{% else %}en{% endif %}">{% if ui_language == 'bn' and info.bangla_care %}{{ info.bangla_care }}{% else %}{{ info.care }}{% endif %}</p>
+          <p>{{ info.care }}</p>
         </div>
 
         <div class="app-card mb-4">
           <h2 class="h5 mb-3"><i data-lucide="stethoscope" style="width:18px;height:18px;" class="me-2"></i><span data-i18n="edu.when_doctor">When to see a doctor</span></h2>
-          <p lang="{% if ui_language == 'bn' and info.bangla_when_to_see_doctor %}bn{% else %}en{% endif %}">{% if ui_language == 'bn' and info.bangla_when_to_see_doctor %}{{ info.bangla_when_to_see_doctor }}{% else %}{{ info.when_to_see_doctor }}{% endif %}</p>
+          <p>{{ info.when_to_see_doctor }}</p>
         </div>
 
         <div class="app-card mb-4" lang="bn">

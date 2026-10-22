@@ -1,120 +1,50 @@
-{% comment %}
-  Prediction loading overlay — shared by the Skin Image Prediction page
-  (predictor/upload.html) and the Smart Photo Guide page
-  (photo_guide/quality_check.html).
-
-  The overlay has TWO visual states, both driven by data attributes on the
-  root element:
-
-    data-state="loading"  (default)
-        Shows the 5-stage progress stepper. Stages advance on a fixed
-        cadence (no fake percentages — we cannot know the real backend
-        progress) and the overlay is removed the moment the browser
-        navigates away or the AJAX response arrives.
-
-    data-state="non-skin"
-        Shown when the server response explicitly classifies the upload
-        as Non-Skin. The stage stepper is hidden and a clear, animated
-        "Non-Skin Image Detected" message replaces it. ResNet50
-        classification is never run in this state.
-
-  Pipeline stages (must match the actual server-side execution order):
-    1. Preparing image input        — validating, resizing, normalizing
-    2. Checking Skin vs Non-Skin    — skin-detection model
-    3. Running ResNet50 classification — 7-class lesion model (skipped on Non-Skin)
-    4. Calculating prediction probabilities — selecting predicted category
-    5. Preparing your report          — saving record, building report
-{% endcomment %}
-<div id="predictionOverlay"
-     class="prediction-overlay"
-     data-state="loading"
-     hidden
-     aria-hidden="true"
-     role="dialog"
-     aria-modal="true"
-     aria-labelledby="overlayTitle">
+<div id="predictionOverlay" class="prediction-overlay" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
   <div class="prediction-overlay-card">
-
-    {# ---------- Loading state: image scan + 5-stage stepper ---------- #}
-    <div class="prediction-overlay-loading" data-overlay-loading>
-      <div class="prediction-overlay-scan" aria-hidden="true">
-        <img class="prediction-overlay-image" id="predictionScanImage" alt="">
-        <div class="prediction-overlay-scan-line"></div>
-      </div>
-      <h2 id="overlayTitle" class="h5 mb-1" data-i18n="overlay.title">Analyzing your image</h2>
-      <p class="text-muted small mb-4" data-i18n="overlay.subtitle">Please keep this tab open. This usually takes a few seconds.</p>
-
-      <ol class="prediction-stages" id="predictionStages">
-        <li class="prediction-stage is-active" data-stage="1">
-          <span class="prediction-stage-num">1</span>
-          <span class="prediction-stage-label">
-            <strong data-i18n="overlay.stage1.title">Preparing image input</strong>
-            <small data-i18n="overlay.stage1.sub">Validating, resizing and normalizing the uploaded image.</small>
-          </span>
-          <span class="prediction-stage-spinner" aria-hidden="true"></span>
-        </li>
-        <li class="prediction-stage" data-stage="2">
-          <span class="prediction-stage-num">2</span>
-          <span class="prediction-stage-label">
-            <strong data-i18n="overlay.stage2.title">Checking Skin vs Non-Skin</strong>
-            <small data-i18n="overlay.stage2.sub">Running the skin detection model to verify whether the image contains skin.</small>
-          </span>
-          <span class="prediction-stage-spinner" aria-hidden="true"></span>
-        </li>
-        <li class="prediction-stage" data-stage="3">
-          <span class="prediction-stage-num">3</span>
-          <span class="prediction-stage-label">
-            <strong data-i18n="overlay.stage3.title">Running ResNet50 classification</strong>
-            <small data-i18n="overlay.stage3.sub">If skin is detected, classifying the image into one of 7 supported categories.</small>
-          </span>
-          <span class="prediction-stage-spinner" aria-hidden="true"></span>
-        </li>
-        <li class="prediction-stage" data-stage="4">
-          <span class="prediction-stage-num">4</span>
-          <span class="prediction-stage-label">
-            <strong data-i18n="overlay.stage4.title">Calculating prediction probabilities</strong>
-            <small data-i18n="overlay.stage4.sub">Processing the model outputs and selecting the predicted category.</small>
-          </span>
-          <span class="prediction-stage-spinner" aria-hidden="true"></span>
-        </li>
-        <li class="prediction-stage" data-stage="5">
-          <span class="prediction-stage-num">5</span>
-          <span class="prediction-stage-label">
-            <strong data-i18n="overlay.stage5.title">Preparing your report</strong>
-            <small data-i18n="overlay.stage5.sub">Saving the prediction record and preparing the report.</small>
-          </span>
-          <span class="prediction-stage-spinner" aria-hidden="true"></span>
-        </li>
-      </ol>
-
-      <div class="prediction-overlay-disclaimer" role="status">
-        <i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;"></i>
-        <span data-i18n="overlay.disclaimer">The displayed stages update according to the actual server status. If the image is classified as non-skin, the process stops and shows a message instead of running ResNet50.</span>
-      </div>
+    <div class="prediction-overlay-scan" aria-hidden="true">
+      <img class="prediction-overlay-image" id="predictionScanImage" alt="">
+      <div class="prediction-overlay-scan-line"></div>
     </div>
+    <h2 id="overlayTitle" class="h5 mb-1" data-i18n="overlay.title">Analyzing your skin image</h2>
+    <p class="text-muted small mb-4" data-i18n="overlay.subtitle">Please keep this tab open. This usually takes a few seconds.</p>
 
-    {# ---------- Non-skin state: animated professional message ---------- #}
-    <div class="prediction-overlay-nonskin" data-overlay-nonskin hidden>
-      <div class="nonskin-icon" aria-hidden="true">
-        <svg viewBox="0 0 64 64" width="72" height="72" role="img" aria-hidden="true">
-          <circle cx="32" cy="32" r="30" fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.25"></circle>
-          <circle class="nonskin-icon-ring" cx="32" cy="32" r="30" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="189" stroke-dashoffset="0" transform="rotate(-90 32 32)"></circle>
-          <path d="M22 22 L42 42 M42 22 L22 42" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"></path>
-        </svg>
-      </div>
-      <h2 class="nonskin-title" data-i18n="overlay.nonskin.title">Non-Skin Image Detected</h2>
-      <p class="nonskin-message" data-i18n="overlay.nonskin.message">
-        The uploaded image does not appear to contain skin suitable for analysis.
-      </p>
-      <p class="nonskin-hint" data-i18n="overlay.nonskin.hint">
-        Please upload a clear image of the skin area you want to analyze.
-      </p>
-      <button type="button"
-              class="btn app-btn-primary nonskin-action"
-              data-overlay-dismiss
-              data-i18n="overlay.nonskin.action">Upload Another Image</button>
-      <p class="nonskin-note" data-i18n="overlay.nonskin.note">ResNet50 classification was not performed.</p>
+    <ol class="prediction-stages" id="predictionStages">
+      <li class="prediction-stage is-active" data-stage="1">
+        <span class="prediction-stage-num">1</span>
+        <span class="prediction-stage-label">
+          <strong data-i18n="overlay.stage1.title">Preparing model input</strong>
+          <small data-i18n="overlay.stage1.sub">Converting, resizing, normalizing pixels</small>
+        </span>
+        <span class="prediction-stage-spinner" aria-hidden="true"></span>
+      </li>
+      <li class="prediction-stage" data-stage="2">
+        <span class="prediction-stage-num">2</span>
+        <span class="prediction-stage-label">
+          <strong data-i18n="overlay.stage2.title">Running ResNet50 inference</strong>
+          <small data-i18n="overlay.stage2.sub">Forward pass through the model</small>
+        </span>
+        <span class="prediction-stage-spinner" aria-hidden="true"></span>
+      </li>
+      <li class="prediction-stage" data-stage="3">
+        <span class="prediction-stage-num">3</span>
+        <span class="prediction-stage-label">
+          <strong data-i18n="overlay.stage3.title">Calculating class probabilities</strong>
+          <small data-i18n="overlay.stage3.sub">Across 7 supported categories</small>
+        </span>
+        <span class="prediction-stage-spinner" aria-hidden="true"></span>
+      </li>
+      <li class="prediction-stage" data-stage="4">
+        <span class="prediction-stage-num">4</span>
+        <span class="prediction-stage-label">
+          <strong data-i18n="overlay.stage4.title">Preparing visual report</strong>
+          <small data-i18n="overlay.stage4.sub">Saving record, building report URL</small>
+        </span>
+        <span class="prediction-stage-spinner" aria-hidden="true"></span>
+      </li>
+    </ol>
+
+    <div class="prediction-overlay-disclaimer" role="status">
+      <i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;"></i>
+      <span data-i18n="overlay.disclaimer">The progress indicators are illustrative. Actual completion is detected only when the server responds.</span>
     </div>
-
   </div>
 </div>
