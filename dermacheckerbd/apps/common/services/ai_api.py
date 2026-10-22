@@ -41,7 +41,7 @@ from apps.common.services.prediction import PredictionError
 
 logger = logging.getLogger(__name__)
 
-SKIN_NON_SKIN_ENDPOINT = "/skin_non_skin"
+SKIN_NON_SKIN_ENDPOINT = "/api/check-skin"
 
 
 class NonSkinImageError(PredictionError):
