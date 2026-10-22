@@ -934,7 +934,7 @@ a:hover { color: var(--primary); }
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 1050;
+  z-index: 1040; /* below prediction overlay (1080) and toast-container (1090) */
 }
 .chatbot-fab-btn {
   position: relative;
@@ -949,10 +949,17 @@ a:hover { color: var(--primary); }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform var(--transition);
+  transition: transform var(--transition), opacity var(--transition);
 }
 .chatbot-fab-btn:hover { transform: scale(1.06); }
-.chatbot-fab-btn[aria-expanded="true"] { display: none; }
+/* When the panel is open, smoothly fade + shrink the FAB out of view.
+   Display:none would also remove it from the tab order and break the
+   toggle button when the panel closes back to its initial state. */
+.chatbot-fab-btn[aria-expanded="true"] {
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+}
 .chatbot-fab-icon { width: 26px; height: 26px; }
 .chatbot-fab-pulse {
   position: absolute;
@@ -982,7 +989,7 @@ a:hover { color: var(--primary); }
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: 1051;
+  z-index: 1041; /* sits just above the FAB */
   border: 1px solid var(--border);
   animation: chatbot-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1120,8 +1127,19 @@ a:hover { color: var(--primary); }
 .chatbot-offline-note svg { width: 14px; height: 14px; vertical-align: -2px; }
 
 @media (max-width: 480px) {
-  .chatbot-fab { bottom: 16px; right: 16px; }
-  .chatbot-panel { bottom: 16px; right: 16px; }
+  .chatbot-fab {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+  }
+  .chatbot-panel {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    left: 16px;
+    width: auto;
+    max-width: calc(100vw - 32px);
+    height: calc(100vh - 96px);
+    max-height: calc(100vh - 96px - env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ---- Upload ---- */
@@ -1736,7 +1754,86 @@ a:hover { color: var(--primary); }
   text-align: left;
 }
 
-/* ---- Nearby Doctor radar overlay ---- */
+/* ---- Non-skin overlay state (shown inside .prediction-overlay-card) ---- */
+.prediction-overlay-loading[hidden],
+.prediction-overlay-nonskin[hidden] { display: none !important; }
+
+.prediction-overlay[data-state="loading"] .prediction-overlay-nonskin { display: none; }
+.prediction-overlay[data-state="non-skin"] .prediction-overlay-loading { display: none; }
+.prediction-overlay[data-state="non-skin"] .prediction-overlay-nonskin { display: block; }
+
+.prediction-overlay-nonskin {
+  padding: 0.5rem 0.25rem 0.25rem;
+  text-align: center;
+  animation: nonskin-fade-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes nonskin-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nonskin-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 0.85rem;
+  color: var(--secondary, #dc2626);
+  position: relative;
+  animation: nonskin-pop 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes nonskin-pop {
+  0%   { opacity: 0; transform: scale(0.55); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.nonskin-icon-ring {
+  animation: nonskin-ring 1.4s ease-out 0.25s forwards;
+  stroke-dashoffset: 189;
+  transform-origin: center;
+}
+@keyframes nonskin-ring {
+  0%   { stroke-dashoffset: 189; opacity: 0; }
+  100% { stroke-dashoffset: 0;   opacity: 0.7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nonskin-icon, .nonskin-icon-ring { animation: none !important; }
+  .nonskin-icon-ring { stroke-dashoffset: 0; opacity: 0.7; }
+}
+
+.nonskin-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--secondary, #dc2626);
+  margin: 0 0 0.5rem;
+}
+.nonskin-message {
+  font-size: 0.92rem;
+  color: var(--text, #1f2937);
+  margin: 0 0 0.35rem;
+  line-height: 1.5;
+}
+.nonskin-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  margin: 0 0 1.1rem;
+  line-height: 1.5;
+}
+.nonskin-action {
+  min-width: 16rem;
+  margin: 0 auto 0.85rem;
+}
+.nonskin-note {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.65rem;
+  background: var(--bg-soft, #f1f5f9);
+  border-radius: 999px;
+}
+
+
 .radar-overlay {
   position: absolute;
   inset: 0;

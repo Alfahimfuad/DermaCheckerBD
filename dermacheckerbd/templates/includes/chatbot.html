@@ -1,6 +1,11 @@
 {% load static %}
-<!-- Floating Gemini chatbot — included on every page -->
-<div id="chatbotFab" class="chatbot-fab" aria-hidden="false">
+<!-- Floating Gemini chatbot — included on every page.
+     z-index hierarchy (see static/css/main.css):
+       .chatbot-fab        1040  (floating button, visible by default)
+       .chatbot-panel      1041  (slide-in panel, hidden until opened)
+       .prediction-overlay 1080  (covers the FAB when an upload is processing)
+       .toast-container    1090  (Django messages sit above everything) -->
+<div id="chatbotFab" class="chatbot-fab">
   <button id="chatbotToggle" type="button"
           class="chatbot-fab-btn"
           aria-label="Open DermaCheckerBD assistant"

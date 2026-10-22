@@ -11,7 +11,7 @@
     <p class="text-muted" data-i18n="predict.subtitle">This system is developed for educational/research purposes and is not a medical diagnostic tool. The prediction should not be considered a medical diagnosis. Please consult a qualified dermatologist or healthcare professional for proper evaluation.</p>
     <hr class="my-4">
 
-    {% if error %}
+    {% if error and not non_skin_error %}
       <div class="medical-disclaimer mb-4">
         <p class="mb-1"><strong><i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:-2px;"></i> <span data-i18n="upload.rejected">Upload rejected</span></strong></p>
         <p class="mb-1" data-i18n-server>{{ error }}</p>
@@ -22,6 +22,14 @@
           </ul>
         {% endif %}
       </div>
+    {% endif %}
+
+    {# Non-skin uploads surface as an animated overlay state instead of a
+       plain red banner. The overlay markup lives in
+       _prediction_overlay.html; we just flip its data-state to "non-skin"
+       on DOMContentLoaded via the script at the bottom of this page. #}
+    {% if non_skin_error %}
+      <div id="nonSkinFlag" data-non-skin="true" hidden></div>
     {% endif %}
 
     <div class="row g-4">
@@ -125,55 +133,123 @@
         }
       },
     });
-    var realInput = document.getElementById('imageInput');
 
-    // Live multi-stage loading overlay. We honestly cannot know the real
-    // backend progress, so we advance the active stage on a timer — but
-    // the overlay is REMOVED the moment the browser actually navigates
-    // away (response received). We never claim "100% complete" ourselves.
+    // ---- Multi-stage loading overlay ----
+    // The browser cannot know the real backend progress because the upload
+    // POST is synchronous and the response navigation wipes the page.
+    // We advance the 5-stage stepper on a fixed cadence as an *illustrative*
+    // timeline (no fake percentages) and never claim "100% complete" — the
+    // overlay simply disappears when the browser actually navigates to the
+    // result page (success) or when the fallback timeout fires (network
+    // error). When the server response classifies the upload as Non-Skin,
+    // we flip the overlay to its non-skin state instead of letting the
+    // ResNet50 stages keep ticking.
     var form = document.getElementById('uploadForm');
     var overlay = document.getElementById('predictionOverlay');
     var stages = document.querySelectorAll('#predictionStages .prediction-stage');
     var stageTimers = [];
     var submitted = false;
 
+    // Cadence in ms at which the active stage advances to the next.
+    // Stage 1 (Preparing) starts active. Each subsequent stage becomes
+    // active at its delay, marking the previous one as done. The final
+    // stage (Preparing your report) stays active until the server
+    // responds or the fallback timer fires.
+    // 0ms:    stage 1 active (Preparing image input)
+    // 1500ms: stage 2 active (Checking Skin vs Non-Skin)
+    // 3000ms: stage 3 active (Running ResNet50 classification)
+    // 5500ms: stage 4 active (Calculating prediction probabilities)
+    // 8000ms: stage 5 active (Preparing your report) — stays active
+    var STAGE_DELAYS = [0, 1500, 3000, 5500, 8000];
+
     function showOverlay() {
       overlay.hidden = false;
       overlay.setAttribute('aria-hidden', 'false');
+      overlay.dataset.state = 'loading';
       document.body.style.overflow = 'hidden';
+
       var scanImage = document.getElementById('predictionScanImage');
-      var placeholder = document.getElementById('predictionScanPlaceholder');
       var selectedFile = uploader && uploader.getFile();
       if (selectedFile && scanImage) {
         scanImage.src = URL.createObjectURL(selectedFile);
         scanImage.hidden = false;
-        if (placeholder) placeholder.hidden = true;
       }
-      // Advance stages on a fixed cadence; each stage stays active
-      // until the next one becomes active. Stage 4 stays active until
-      // the server actually responds (the browser navigates away and
-      // the overlay disappears with the page).
-      var stageDelays = [0, 1500, 3000, 5500];
+
+      // Reset all stages, mark stage 1 as active.
       stages.forEach(function (el, i) {
-        if (i === 0) return; // stage 1 already active
-        var t = setTimeout(function () {
-          stages[i - 1].classList.remove('is-active');
-          stages[i - 1].classList.add('is-done');
-          stages[i].classList.add('is-active');
-        }, stageDelays[i]);
-        stageTimers.push(t);
+        el.classList.remove('is-active', 'is-done');
+        if (i === 0) el.classList.add('is-active');
+      });
+
+      // Advance subsequent stages on the cadence above.
+      for (var i = 1; i < stages.length; i++) {
+        (function (idx) {
+          var t = setTimeout(function () {
+            stages[idx - 1].classList.remove('is-active');
+            stages[idx - 1].classList.add('is-done');
+            stages[idx].classList.add('is-active');
+          }, STAGE_DELAYS[idx]);
+          stageTimers.push(t);
+        })(i);
+      }
+    }
+
+    function hideOverlay() {
+      overlay.hidden = true;
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.dataset.state = 'loading';
+      document.body.style.overflow = '';
+      var scanImage = document.getElementById('predictionScanImage');
+      if (scanImage) {
+        scanImage.removeAttribute('src');
+        scanImage.hidden = false;
+      }
+      stages.forEach(function (el, i) {
+        el.classList.remove('is-active', 'is-done');
+        if (i === 0) el.classList.add('is-active');
+      });
+      stageTimers.forEach(clearTimeout);
+      stageTimers = [];
+    }
+
+    function showNonSkinState() {
+      // Flip the overlay into its non-skin state. The 5-stage stepper is
+      // hidden by CSS and the animated "Non-Skin Image Detected" panel
+      // appears in its place. ResNet50 is never invoked by the backend
+      // for non-skin images.
+      overlay.hidden = false;
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.dataset.state = 'non-skin';
+      stageTimers.forEach(clearTimeout);
+      stageTimers = [];
+    }
+
+    // The dismiss button inside the non-skin overlay resets everything
+    // back to the empty upload form.
+    var dismissBtn = overlay.querySelector('[data-overlay-dismiss]');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', function () {
+        hideOverlay();
+        // Re-enable the submit button and clear the selected file so the
+        // user can pick a different image.
+        submitBtn.disabled = false;
+        var label = document.getElementById('submitLabel');
+        if (label) {
+          label.textContent = label.getAttribute('data-i18n-original')
+            || label.textContent.trim()
+            || 'Check image quality & analyze';
+        }
+        submitted = false;
       });
     }
 
     form.addEventListener('submit', function (e) {
-      // Native form submission causes a navigation, so we just show the
-      // overlay now and let the browser take over.
       if (submitted) { e.preventDefault(); return; }
       submitted = true;
       var label = document.getElementById('submitLabel');
       // Capture the current translated label BEFORE we overwrite it, so we
-      // can restore it (in the user's chosen language) when the timeout
-      // fallback fires. main.js will not re-run after a 60s timer, so a
+      // can restore it (in the user's chosen language) when the fallback
+      // timeout fires. main.js will not re-run after a 60s timer, so a
       // hard-coded English string here would otherwise leak through the
       // Bangla UI.
       var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Check image quality & analyze';
@@ -182,28 +258,30 @@
         : 'Processing…';
       submitBtn.disabled = true;
       showOverlay();
+
       // If the response fails to load (network error), unlock after 60s
       // so the user can try again rather than sit on a frozen overlay.
       setTimeout(function () {
         if (submitted) {
           submitted = false;
-          overlay.hidden = true;
-          overlay.setAttribute('aria-hidden', 'true');
-          document.body.style.overflow = '';
+          hideOverlay();
           label.textContent = originalLabel;
           submitBtn.disabled = false;
-          stages.forEach(function (el, i) {
-            el.classList.remove('is-active', 'is-done');
-            if (i === 0) el.classList.add('is-active');
-          });
-          stageTimers.forEach(clearTimeout);
-          stageTimers = [];
           alert(window.DERMA && window.DERMA.t
             ? window.DERMA.t('predict.timeout_alert', 'The prediction is taking longer than expected. Please try again.')
             : 'The prediction is taking longer than expected. Please try again.');
         }
       }, 60000);
     });
+
+    // If the server just rendered the page in response to a non-skin
+    // upload (synchronous POST → 200 with `non_skin_error=True`), flip
+    // the shared overlay into its animated Non-Skin state so the user
+    // sees the professional message instead of the plain red banner.
+    var nonSkinFlag = document.getElementById('nonSkinFlag');
+    if (nonSkinFlag && nonSkinFlag.getAttribute('data-non-skin') === 'true') {
+      showNonSkinState();
+    }
   });
 </script>
 {% endblock %}

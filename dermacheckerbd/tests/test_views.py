@@ -156,7 +156,11 @@ class UploadPagePrivacyTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Supported lesion categories")
-        self.assertContains(response, "Across 7 supported categories")
+        # The 5-stage overlay now mentions "7 supported categories" inside
+        # the ResNet50 stage subtitle instead of the old generic
+        # "Across 7 supported categories" caption. Either way, the page
+        # must surface the count without leaking the HAM10000 dataset name.
+        self.assertContains(response, "7 supported categories")
         self.assertNotContains(response, "HAM10000")
 
 
@@ -307,7 +311,15 @@ class UploadAndPredictionTests(TestCase):
             response = self.c.post("/predict/", {"image": upload})
 
         self.assertEqual(response.status_code, 200)
+        # The animated Non-Skin overlay state is enabled via #nonSkinFlag,
+        # which the client JS reads to flip the shared overlay. The plain
+        # red medical-disclaimer banner is suppressed on this branch.
+        self.assertContains(response, 'id="nonSkinFlag"')
+        self.assertContains(response, 'data-non-skin="true"')
         self.assertContains(response, "does not appear to contain skin")
+        # The shared overlay must include the animated Non-Skin panel.
+        self.assertContains(response, "Non-Skin Image Detected")
+        self.assertContains(response, "ResNet50 classification was not performed.")
         lesion_predict.assert_not_called()
         self.assertFalse(PredictionRecord.objects.filter(user=self.user).exists())
 
@@ -583,7 +595,15 @@ class PhotoGuideHandoffTests(TestCase):
             response = self.client.post("/quality/", {"image": upload})
 
         self.assertEqual(response.status_code, 200)
+        # The animated Non-Skin overlay state is enabled via #nonSkinFlag,
+        # which the client JS reads to flip the shared overlay. The plain
+        # red medical-disclaimer banner is suppressed on this branch.
+        self.assertContains(response, 'id="nonSkinFlag"')
+        self.assertContains(response, 'data-non-skin="true"')
         self.assertContains(response, "does not appear to contain skin")
+        # The shared overlay must include the animated Non-Skin panel.
+        self.assertContains(response, "Non-Skin Image Detected")
+        self.assertContains(response, "ResNet50 classification was not performed.")
         # Quality + enhancement must never run for a non-skin image.
         quality_check.assert_not_called()
         enhance.assert_not_called()
@@ -593,6 +613,29 @@ class PhotoGuideHandoffTests(TestCase):
         # DOM, so we check for the actual <button id="runPredictionButton">
         # tag rather than the bare ID string.
         self.assertNotContains(response, 'id="runPredictionButton"')
+
+    def test_overlay_lists_five_pipeline_stages_in_order(self):
+        """The shared prediction overlay must list the 5 stages that
+        match the actual server-side pipeline order: Preparing input →
+        Skin vs Non-Skin → ResNet50 → Probabilities → Report."""
+        response = self.client.get("/quality/")
+        self.assertEqual(response.status_code, 200)
+        stages = re.findall(
+            r'data-stage="(\d)"[^>]*>.*?<strong[^>]*>([^<]+)</strong>',
+            response.content.decode(),
+            re.DOTALL,
+        )
+        self.assertEqual(
+            [int(num) for num, _ in stages],
+            [1, 2, 3, 4, 5],
+            "overlay must render exactly 5 stages in order",
+        )
+        titles = [title for _, title in stages]
+        self.assertIn("Preparing image input", titles)
+        self.assertIn("Checking Skin vs Non-Skin", titles)
+        self.assertIn("Running ResNet50 classification", titles)
+        self.assertIn("Calculating prediction probabilities", titles)
+        self.assertIn("Preparing your report", titles)
 
     def test_enhanced_preview_is_handed_to_prediction_as_the_uploaded_file(self):
         original = make_skin_image(seed=41, size=(300, 300))
