@@ -1047,10 +1047,7 @@ a:hover { color: var(--primary); }
   font-size: 0.88rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
-  /* pre-line collapses runs of spaces/newlines into a single space (so
-     template indentation never shows up as extra space inside the bubble)
-     while still honouring explicit <br> and \n line breaks in replies. */
-  white-space: pre-line;
+  white-space: pre-wrap;
   /* Explicit alignment so long Bangla/English lines stay correct on every
      viewport. The JS sets per-bubble text-align too, but the CSS rule here
      is the durable source of truth. */
