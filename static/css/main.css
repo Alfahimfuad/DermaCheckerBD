@@ -1036,8 +1036,9 @@ a:hover { color: var(--primary); }
   flex-direction: column;
   gap: 0.75rem;
 }
-.chatbot-msg { display: flex; flex: 0 0 auto; min-width: 0; }
+.chatbot-msg { display: flex; flex: 0 0 auto; min-width: 0; width: 100%; }
 .chatbot-msg.user { justify-content: flex-end; }
+.chatbot-msg-bot { justify-content: flex-start; }
 .chatbot-msg-bubble {
   max-width: 80%;
   min-width: 0;
@@ -1047,6 +1048,13 @@ a:hover { color: var(--primary); }
   line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  /* Explicit alignment so long Bangla/English lines stay correct on every
+     viewport. The JS sets per-bubble text-align too, but the CSS rule here
+     is the durable source of truth. */
+  text-align: left;
+}
+.chatbot-msg.user .chatbot-msg-bubble {
+  text-align: right;
 }
 .chatbot-msg-bot .chatbot-msg-bubble {
   background: white;
@@ -1072,6 +1080,32 @@ a:hover { color: var(--primary); }
 @keyframes typing {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
   30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ---- Anonymous FAQ quick-reply button bar ---- */
+.chatbot-faqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.25rem 0;
+}
+.chatbot-faq-btn {
+  border: 1px solid var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dark, var(--primary));
+  font-size: 0.78rem;
+  line-height: 1.2;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  text-align: left;
+}
+.chatbot-faq-btn:hover,
+.chatbot-faq-btn:focus-visible {
+  background: var(--primary);
+  color: white;
+  outline: none;
 }
 
 .chatbot-form {
@@ -1121,7 +1155,41 @@ a:hover { color: var(--primary); }
 
 @media (max-width: 480px) {
   .chatbot-fab { bottom: 16px; right: 16px; }
-  .chatbot-panel { bottom: 16px; right: 16px; }
+  .chatbot-fab-btn { width: 54px; height: 54px; }
+  .chatbot-fab-icon { width: 24px; height: 24px; }
+  /* Full-bleed panel on small phones: only a thin margin so the panel
+     never overlaps the screen edge or the navbar. */
+  .chatbot-panel {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: auto;
+    width: 100vw;
+    max-width: 100vw;
+    height: 88vh;
+    max-height: 88vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+  .chatbot-messages { padding: 0.75rem; gap: 0.6rem; }
+  .chatbot-msg-bubble {
+    /* Slightly wider bubbles on small screens so short Bangla/English
+       lines stay readable without taking the full row. */
+    max-width: 85%;
+    font-size: 0.86rem;
+  }
+  .chatbot-form { padding: 0.45rem; gap: 0.3rem; }
+  .chatbot-input { padding: 0.45rem 0.75rem; font-size: 0.88rem; }
+  .chatbot-faqs { gap: 0.35rem; }
+  .chatbot-faq-btn { font-size: 0.74rem; padding: 0.35rem 0.6rem; }
+}
+
+@media (max-width: 360px) {
+  /* On very narrow phones, let user bubbles use almost the full row so
+     longer Bangla questions do not wrap awkwardly. */
+  .chatbot-msg-bubble { max-width: 92%; }
 }
 
 /* ---- Upload ---- */

@@ -1092,6 +1092,11 @@ class ChatbotEndpointTests(TestCase):
         self.assertIn("reply", data)
 
     def test_project_authorship_question_returns_fixed_attribution(self):
+        # Authenticated users keep the original Gemini-powered attribution
+        # shortcut. Anonymous users now get the FAQ-only answer instead (see
+        # tests.test_chatbot_privacy.AnonymousFaqOnlyTests for that contract).
+        owner = User.objects.create_user(username="attribution-user", password="Pass!2024")
+        self.client.force_login(owner)
         response = self.client.post(
             "/chatbot/message/",
             data=json.dumps({
@@ -1140,7 +1145,10 @@ class ChatbotEndpointTests(TestCase):
     def test_guest_cannot_supply_private_dashboard_context(self):
         from unittest.mock import patch
 
-        with patch("apps.chatbot.views.GeminiService.chat", return_value="Public reply") as chat:
+        # Anonymous visitors NEVER trigger a Gemini call (FAQ-only contract).
+        # The browser-supplied "context" field must be ignored entirely —
+        # the response is the FAQ guidance message, never an account summary.
+        with patch("apps.chatbot.views.GeminiService.chat") as chat:
             response = self.client.post(
                 "/chatbot/message/",
                 data=json.dumps({
@@ -1152,8 +1160,13 @@ class ChatbotEndpointTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["scope"], "public")
-        self.assertIsNone(chat.call_args.kwargs["context"])
-        self.assertFalse(chat.call_args.kwargs["is_authenticated"])
+        self.assertFalse(response.json()["authed"])
+        # Gemini is never called for anonymous users.
+        chat.assert_not_called()
+        # The response carries the FAQ list so the frontend can render the
+        # quick-reply buttons.
+        self.assertIn("faqs", response.json())
+        self.assertEqual(len(response.json()["faqs"]), 7)
 
     def test_guest_private_dashboard_question_is_blocked_until_sign_in(self):
         with patch("apps.chatbot.views.GeminiService.chat") as chat:

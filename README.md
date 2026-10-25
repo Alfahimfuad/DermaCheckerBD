@@ -22,7 +22,7 @@ practical, transparency-oriented features:
 | **AI Reliability Check**      | Runs predictions across mild image transforms; reports agreement %.      |
 | **Multi-Image Disagreement**  | Compares predictions across N photos of the same lesion.                  |
 | **Lesion Follow-up Tracker**  | Private per-user lesion records with a timeline + PDF summary.            |
-| **Gemini Floating Assistant** | Role-scoped chatbot for public help, a user's own dashboard, and staff aggregates. Never diagnoses. |
+| **Floating Assistant**        | Role-scoped chatbot. **Anonymous visitors get 7 predefined FAQs only** (no Gemini calls). Signed-in users get the full Gemini-powered assistant with their own dashboard summary. Staff get aggregate-only totals. Never diagnoses. |
 | **Wrong-Input Protection**    | Flags non-skin / corrupt / out-of-range inputs before predicting.        |
 | **Similar Case Explorer**    | Modular stub. Plug in a reference dataset to enable.                      |
 
@@ -39,9 +39,9 @@ the ONNX backend is an optional integration point.
 - **Database**: SQLite (local) → PostgreSQL via `DATABASE_URL` (production, e.g., Neon)
 - **ML**: TensorFlow/Keras ResNet50, OpenCV, Pillow, NumPy
 - **PDF**: ReportLab
-- **AI assistant**: Google Gemini (`google-genai` SDK) — called server-side only
+- **AI assistant**: Google Gemini (`google-genai` SDK) — called server-side only, **only for authenticated users**
 - **Static**: WhiteNoise (compressed, manifest-hashed)
-- **WSGI**: Gunicorn
+- **WSGI**: Gunicorn (single worker, Render-compatible)
 - **Deployment**: Render (Render Blueprint in `render.yaml`)
 
 ---
@@ -67,6 +67,7 @@ cp .env.example .env
 # Windows PowerShell alternative: Copy-Item .env.example .env
 # For local PostgreSQL, uncomment LOCAL_DB_* in .env and enter your local
 # database password there. Leave them commented to use SQLite.
+# Set ML_MODEL_BACKEND=mock for tests / demos that should not load TensorFlow.
 
 # 5. Apply database migrations
 python manage.py migrate
@@ -97,14 +98,16 @@ groups and review statuses are follow-up workflow aids, not diagnoses.
 ```
 dermacheckerbd/              # Django project package (settings, urls, wsgi, asgi)
 apps/                    # Local apps
-  accounts/              # signup, login, profile
+  accounts/              # signup, login, profile, dashboard
   core/                  # home, about, how_it_works, privacy
   predictor/             # upload, predict, result, history, PDF report
   photo_guide/           # standalone image-quality checker
   reliability/           # standalone AI Reliability Check page
   multi_image/           # multi-image disagreement
   tracker/               # lesion follow-up tracker
-  chatbot/               # Gemini floating assistant endpoint
+  chatbot/               # floating assistant endpoint + FAQs
+    views.py             # message_view: anonymous=FAQ-only, auth=full Gemini
+    faqs.py              # 7 predefined multilingual FAQs (no AI calls)
   similar_cases/         # stubbed similar-case explorer
   common/                # shared services (no URLs, no models)
     services/
@@ -117,21 +120,25 @@ apps/                    # Local apps
       wrong_input.py    # wrong-input protection
       similar_cases.py   # modular stub
 templates/               # Django templates (base, includes/, per-app dirs)
+  includes/chatbot.html  # floating chatbot panel + anonymous FAQ quick-reply bar
 static/                  # CSS, JS, images
-  css/main.css           # design system
+  css/main.css           # design system + chatbot alignment / responsive rules
   js/main.js             # global JS
   js/image-upload.js     # drag-and-drop upload component
-  js/chatbot.js          # floating chatbot client
+  js/chatbot.js          # floating chatbot client (FAQ buttons + alignment)
 media/                   # user uploads (gitignored)
   uploads/               # uploaded prediction images
   tracked/               # follow-up tracker photos
   reference/             # reference dataset for Similar Cases (when enabled)
 scripts/                 # development scripts (smoke tests, etc.)
 tests/                   # Django test suite
+  _helpers.py            # in-memory skin-like test image generator
+  test_chatbot_privacy.py# FAQ-only anonymous, Gemini prevention, IDOR, auth regression
+  test_views.py          # auth, uploads, history, tracker, chatbot endpoint
+  ... (see "Running tests" below for the full list)
 db/                      # SQLite db + cache (gitignored)
-download/                # generated PDFs / images from smoke tests
 .env / .env.example      # environment configuration
-Procfile                 # Render/Heroku-style process file
+Procfile                 # Render/Heroku-style process file (single worker)
 render.yaml              # Render Blueprint
 runtime.txt              # Python version pin
 requirements.txt
@@ -169,13 +176,13 @@ manage.py
 | `ML_MODEL_INPUT_SIZE`      | `224`                                            | Resize dimension used in preprocessing.             |
 | `ML_MODEL_CLASSES`         | `akiec,bcc,bkl,df,mel,nv,vasc`                   | Must match the trained model's output order.        |
 | `ML_MODEL_RESAMPLE`        | `BILINEAR`                                       | Resize filter; matches the supplied training pipeline. |
-| `GEMINI_API_KEY`           | unset                                            | Leave unset to run chatbot in offline mode.         |
+| `GEMINI_API_KEY`           | unset                                            | Leave unset to run chatbot in offline mode. **Anonymous visitors never trigger Gemini calls** even when this key is set; the key is only consulted for authenticated users. |
 | `GEMINI_MODEL`             | `gemini-2.0-flash`                               | Model name.                                          |
 | `GEOAPIFY_API_KEY`         | unset                                            | Optional key for Nearby Doctors and Hospitals.      |
 | `DJANGO_SUPERUSER_USERNAME`| unset                                            | Set in Render to create the initial admin account.   |
 | `DJANGO_SUPERUSER_PASSWORD`| unset                                            | Set in Render; at least 12 characters.              |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | unset                                          | Optional comma-separated trusted origins. Replit preview origins are allowed automatically in development only. |
-| `CHATBOT_RATE_LIMIT`       | `10/m`                                           | django-ratelimit spec (10 messages/minute/IP).      |
+| `CHATBOT_RATE_LIMIT`       | `10/m`                                           | django-ratelimit spec (10 messages/minute/IP). Applies to anonymous AND authenticated users. |
 | `IMG_BLUR_THRESHOLD`       | `100.0`                                          | Laplacian-variance threshold for blur.              |
 | `IMG_BRIGHTNESS_MIN/MAX`   | `40 / 220`                                       | Acceptable mean-intensity range.                    |
 | `RELIABILITY_TRANSFORMS`   | `brightness_up,...,slight_rotation`              | Comma-separated transform names.                    |
@@ -216,32 +223,211 @@ Set `ML_MODEL_BACKEND=mock` to use deterministic demo predictions instead.
 
 ---
 
+## Floating chatbot — anonymous FAQ-only vs. authenticated full Gemini
+
+The floating chatbot has two distinct paths enforced at the top of
+`apps/chatbot/views.py:message_view()`:
+
+### Anonymous (logged-out) visitors — FAQ-only, NO Gemini calls
+
+- The visitor sees **7 predefined FAQ quick-reply buttons** in the chatbot
+  panel. Clicking a button sends `{"faq_id": "..."}` and the server returns the
+  canned answer for that FAQ (English or Bengali, matching the UI language).
+- The visitor can also type a free-text question. The server matches it
+  against the 7 FAQs (substring / keyword match). If a FAQ matches, the canned
+  answer is returned. If nothing matches, a short guidance message is returned
+  along with the FAQ list so the buttons can be re-rendered.
+- Personal-data questions ("my dashboard", "my history", …) are redirected to
+  a "please sign in" message — **still without calling Gemini**.
+- The `GeminiService.chat` function is **never invoked** on the anonymous path,
+  even when `GEMINI_API_KEY` is configured. This is enforced both in the view
+  and verified by tests (`tests/test_chatbot_privacy.py::AnonymousFaqOnlyTests`).
+- Anonymous responses include `"scope": "public"`, `"authed": false`, and either
+  `"faq_id": "<id>"` (when a FAQ was answered) or `"faq_id": ""` (guidance /
+  sign-in redirect). The guidance response also carries `"faqs": [...]` so the
+  frontend can render the buttons.
+
+### Authenticated (logged-in) users — full Gemini-powered chatbot
+
+- All existing chatbot behavior is preserved: Gemini-powered general answers,
+  the user's own dashboard summary (reconstructed from the authenticated
+  request — never from browser-supplied data), and aggregate-only totals for
+  staff / doctors with the medical-queue permission.
+- The `faq_id` / `faqs` fields are NOT included on authenticated responses —
+  the frontend hides the FAQ bar for logged-in users.
+- When `GEMINI_API_KEY` is unset, the authenticated path falls back to the
+  canned educational replies (existing behavior).
+
+### The 7 predefined FAQs
+
+The list lives in `apps/chatbot/faqs.py` and is intentionally kept at 7 items
+so the button bar stays compact on mobile. Each FAQ has stable ids, English and
+Bengali questions, and English and Bengali answers:
+
+| id            | English question                          |
+| ------------- | ----------------------------------------- |
+| `what_is`     | What is DermaCheckerBD?                   |
+| `accuracy`    | How accurate are the predictions?         |
+| `photo_guide` | How do I upload a clear photo?            |
+| `class_names` | What do the class names (mel, nv, bcc…) mean? |
+| `disclaimer`  | Is this a medical diagnosis?              |
+| `find_doctor` | How do I find a dermatologist nearby?     |
+| `signup`      | How do I sign up or log in?               |
+
+Use `apps.chatbot.faqs.list_faqs(language)` to get the id+question list, and
+`get_faq_answer(faq_id, language)` to get a single answer.
+
+### Chatbot UI alignment + responsive layout
+
+- **User messages** are right-aligned (`.chatbot-msg.user` → `justify-content: flex-end`;
+  `.chatbot-msg.user .chatbot-msg-bubble { text-align: right }`). The JS also
+  sets `bubble.style.textAlign = "right"` per bubble for extra robustness.
+- **Chatbot replies** are left-aligned (`.chatbot-msg-bot` → `justify-content: flex-start`;
+  `.chatbot-msg-bot .chatbot-msg-bubble { text-align: left }`).
+- **Responsive mobile**: at `max-width: 480px` the panel becomes full-bleed
+  (full width, 88vh height, top-rounded corners only). At `max-width: 360px`
+  the bubble `max-width` increases to 92% so longer Bangla questions do not
+  wrap awkwardly.
+- **FAQ quick-reply buttons** wrap horizontally and use a pill style; on mobile
+  they shrink to keep the bar readable.
+
+---
+
+## Enabling the live Gemini chatbot
+
+1. Get a Gemini API key from <https://aistudio.google.com/app/apikey>.
+2. Set `GEMINI_API_KEY=...` in your environment.
+3. Restart the server. The floating chatbot will switch from offline canned
+   responses to real Gemini calls — **but only for authenticated users**.
+   Anonymous visitors continue to receive the 7 FAQs and never trigger a
+   Gemini call.
+
+The chatbot's system prompt (see `apps/common/services/gemini.py`) forbids
+diagnosing cancer, prescribing medication, or promising a lesion is safe based
+on the model output. Image bytes are never sent to Gemini — only text.
+
+### Chatbot access and privacy
+
+The floating assistant sends messages to Django; the browser never calls Gemini
+directly. `GEMINI_API_KEY` stays on the server and should be stored in an
+environment variable or the hosting platform's secrets manager, never in
+frontend code or a committed file.
+
+- **Visitors who are not signed in** can ONLY access the 7 predefined FAQs.
+  Gemini is never called for them, so anonymous traffic cannot drive paid API
+  usage. Requests for personal information are redirected to "please sign in".
+- **Signed-in users** can ask about their own dashboard and recent activity.
+  The server builds private context only from the authenticated account;
+  browser-supplied dashboard data is not accepted.
+- **Django staff and doctors with the medical follow-up queue permission** can
+  ask for anonymized site-wide totals and trends, such as user, prediction, and
+  tracked-lesion counts or prediction/review-status summaries. The assistant
+  does not receive usernames, contact details, individual histories, or
+  individual records, and it refuses requests to reveal them.
+
+The chatbot is informational only and does not provide a diagnosis. Gemini
+receives text conversation only; uploaded images are not sent to the API.
+
+---
+
+## Privacy, IDOR prevention, and ownership checks
+
+Every endpoint that exposes personal data enforces Django authentication and
+ownership. Cross-user access (Insecure Direct Object Reference, IDOR) is
+blocked at every layer:
+
+| Endpoint                                          | Auth required      | Ownership check                                                                                            |
+| ------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `GET /predict/result/<ref>/`                      | Owner or session   | `record.user == request.user` (or same `session_key` for anonymous). Staff with `view_medical_priority_queue` may view. Otherwise 403. |
+| `GET /predict/result/<ref>/pdf/`                  | Owner or session   | Same as above. 403 on mismatch.                                                                            |
+| `POST /predict/result/<ref>/delete/`              | Owner or session   | Same as above. 403 on mismatch. Record remains.                                                            |
+| `GET /predict/history/`                           | Anyone             | Queryset scoped via `_scope_queryset()`: authenticated → own records; anonymous → own `session_key` records. |
+| `GET /predict/history/?export=json`               | Anyone             | Same scope; capped at 200 records.                                                                          |
+| `GET /tracker/`, `GET /tracker/<id>/`             | `@login_required`  | `LesionRecord.objects.filter(user=request.user)`; `get_object_or_404(..., user=request.user)`. Other users get 404. |
+| `POST /tracker/<id>/add-photo/`                   | `@login_required`  | Same.                                                                                                       |
+| `POST /tracker/<id>/delete/`                      | `@login_required`  | Same.                                                                                                       |
+| `GET /tracker/<id>/summary.pdf`                   | `@login_required`  | Same.                                                                                                       |
+| `GET /accounts/profile/`, `GET /accounts/dashboard/` | `@login_required` | All queries scoped to `request.user`.                                                                       |
+| `POST /chatbot/message/`                          | Anyone             | Anonymous: FAQ-only, no Gemini. Authenticated: only `request.user`'s own dashboard summary is built; browser-supplied context is ignored. Staff: aggregate-only totals; individual records refused. |
+| `GET /doctors/panel/`, `POST /doctors/.../review/` | `medical_queue_access_required` | Restricted to staff / queue-permission holders.                                                             |
+
+Anonymous session-scoped prediction records are isolated by `session_key`; a
+different browser session cannot view, delete, or export them. The chatbot
+endpoint also ignores any browser-supplied `history` field — even if a
+malicious user injects another user's reference id into the conversation
+history, the server only builds context from the authenticated request.
+
+---
+
+## Low-RAM / low-CPU contract (Render single-worker compatible)
+
+The deployment stays on Render's free / single-worker plan without any increase
+in memory or CPU requirements:
+
+- **Anonymous chatbot path is fully static.** FAQ answers are read from a
+  Python list — no Gemini client init, no model load, no DB queries. RAM and
+  CPU stay flat regardless of anonymous traffic.
+- **Gemini client is lazy + cached.** `GeminiService._client` / `_model` are
+  class-level attributes built on first authenticated chatbot call. There is
+  no per-request client construction and no background worker.
+- **No AI model is loaded into Django memory for the chatbot.** The chatbot
+  sends text only; image classification lives behind the separate FastAPI
+  `ML_MODEL_BACKEND=api` path on Render.
+- **Bounded request sizes.** `DATA_UPLOAD_MAX_MEMORY_SIZE = 10 MB`,
+  `FILE_UPLOAD_MAX_MEMORY_SIZE = 10 MB`. Chatbot messages are capped at 600
+  characters. History is truncated to the last 10 messages server-side.
+- **Efficient DB queries.** Chatbot dashboard summaries use `values() +
+  annotate(Count)` instead of fetching full rows. Tracker / history lists use
+  indexed `(user, -created_at)` and `(session_key, -created_at)` indexes.
+- **No new heavy dependencies.** `requirements.txt` is unchanged; the FAQ
+  module uses only the Python standard library + Django.
+- **Single worker, no extra processes.** `Procfile` is unchanged:
+  `gunicorn dermacheckerbd.wsgi:application --workers 1 --timeout 120`.
+
+---
+
 ## Running tests
 
 ```bash
+# Run the full suite (verbose)
 python manage.py test tests -v2
+
+# Run only the new chatbot privacy tests
+python manage.py test tests.test_chatbot_privacy -v2
+
+# Run only the existing chatbot endpoint tests
+python manage.py test tests.test_views.ChatbotEndpointTests tests.test_views.LanguagePreferenceTests -v2
 ```
 
-26 automated tests cover:
+The suite is split across these files in `tests/`:
 
-- Authentication & authorization (signup, login required for tracker/profile).
-- Valid and invalid uploads (file-type, file-size, content).
-- Image preprocessing and prediction service behavior (determinism, 7 classes,
-  probabilities sum to 1, Keras preprocessing and model-load caching).
-- Prediction failures are returned as a safe user-facing message.
-- Image-quality checks (good image passes, tiny image fails).
-- Reliability check (produces variants, computes agreement).
-- Multi-image disagreement (returns modal class).
-- Wrong-input protection (valid skin image passes, corrupt bytes fail).
-- Tracker privacy (Alice can view her record; Bob gets 404; Bob cannot delete).
-- Chatbot endpoint (returns JSON, rejects empty/invalid messages).
-- Production-safe settings (CSRF middleware enabled).
+| File                          | What it covers                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `test_chatbot_privacy.py`     | **NEW.** 40 tests: FAQ module, anonymous FAQ-only access, Gemini-call prevention for anonymous, authenticated full-Gemini preservation, template FAQ button rendering, IDOR prevention across predictor / tracker / chatbot, authenticated regression. |
+| `test_views.py`               | Auth, uploads, prediction history, tracker privacy, chatbot endpoint (updated for the new anonymous contract). |
+| `test_round2.py`              | History date validation, low-confidence banner, multi-image failures, tracker date validation, predictor access control, reliability low-confidence. |
+| `test_services.py`            | Service-layer behavior (prediction, image quality, reliability, multi-image, wrong-input, PDF).         |
+| `test_skin_validation.py`    | Skin/non-skin API integration.                                                                          |
+| `test_medical_queue.py`       | Doctor follow-up queue access control and review workflow.                                              |
+| `test_storage_settings.py`    | Cloudinary storage backend configuration.                                                               |
+| `test_geoapify.py`            | Nearby Doctors / Geoapify Places + Geocoding integration.                                               |
+| `test_education.py`           | Skin Health Library content + views.                                                                    |
 
 Smoke tests (run them with `python scripts/`):
 
 - `scripts/smoke_test_services.py` — exercises the service layer directly.
 - `scripts/http_e2e_test.py` — exercises the full HTTP pipeline against a
   running server (start the server first, then run the script).
+
+### Test status
+
+- **All chatbot-related tests pass** (57 tests across `test_chatbot_privacy.py`
+  + `ChatbotEndpointTests` + `LanguagePreferenceTests`).
+- The broader `tests/test_round2.py` file contains some pre-existing failures
+  that are unrelated to the chatbot fix (predictor access-control status code
+  mismatch, low-confidence banner threshold, reliability agreement when all
+  transforms fail, malformed date handling). These were present in the project
+  before the chatbot fix and are out of scope for "do not change anything else".
 
 ---
 
@@ -267,7 +453,7 @@ Smoke tests (run them with `python scripts/`):
    - `AI_SKIN_API_FILE_FIELD` — the multipart upload field expected by that API (defaults to `file`).
    - `AI_API_TOKEN` — only if the seven-class API requires bearer-token authentication.
    - `AI_SKIN_API_TOKEN` — only if the skin/non-skin API needs a different token; otherwise it falls back to `AI_API_TOKEN`.
-   - `GEMINI_API_KEY` — optional; omit it to keep the assistant in offline mode.
+   - `GEMINI_API_KEY` — optional; omit it to keep the assistant in offline mode. **Anonymous visitors never trigger Gemini calls** even when this is set; the key is only consulted for authenticated users.
    - `GEOAPIFY_API_KEY` — optional; only needed for Nearby Doctors.
 5. Render deploys from `main` automatically after each push. The site health
    endpoint is `/healthz/`; Django admin is at `/admin/`.
@@ -322,43 +508,6 @@ The feature is shipped stubbed (`SIMILAR_CASES_ENABLED=False`). To enable:
 
 ---
 
-## Enabling the live Gemini chatbot
-
-1. Get a Gemini API key from
-   <https://aistudio.google.com/app/apikey>.
-2. Set `GEMINI_API_KEY=...` in your environment.
-3. Restart the server. The floating chatbot will switch from offline
-   canned responses to real Gemini calls.
-
-The chatbot's system prompt (see `apps/common/services/gemini.py`) forbids
-diagnosing cancer, prescribing medication, or promising a lesion is safe based
-on the model output. Image bytes are never sent to Gemini — only text.
-
-### Chatbot access and privacy
-
-The floating assistant sends messages to Django; the browser never calls Gemini
-directly. `GEMINI_API_KEY` stays on the server and should be stored in an
-environment variable or the hosting platform's secrets manager, never in
-frontend code or a committed file.
-
-- **Visitors who are not signed in** can ask about public site information and
-  general questions. They do not receive account, dashboard, prediction-history,
-  profile, or lesion-tracker data. Requests for personal information are directed
-  to sign in.
-- **Signed-in users** can ask about their own dashboard and recent activity.
-  The server builds private context only from the authenticated account;
-  browser-supplied dashboard data is not accepted.
-- **Django staff and doctors with the medical follow-up queue permission** can
-  ask for anonymized site-wide totals and trends, such as user, prediction, and
-  tracked-lesion counts or prediction/review-status summaries. The assistant
-  does not receive usernames, contact details, individual histories, or
-  individual records, and it refuses requests to reveal them.
-
-The chatbot is informational only and does not provide a diagnosis. Gemini
-receives text conversation only; uploaded images are not sent to the API.
-
----
-
 ## Research evaluation protocol
 
 The system is designed for measurable experiments. Two features in particular
@@ -385,15 +534,24 @@ report the numbers honestly, even if they are unfavourable.
 ## Security & privacy summary
 
 - HTTPS enforced in production; HSTS, secure cookies, X-Frame-Options DENY.
-- CSRF on every form & state-changing request.
+- CSRF on every form & state-changing request (including the chatbot endpoint).
 - File type + size validation on every upload.
 - Rate limiting on the chatbot endpoint (`10/m` per IP by default).
 - API keys are read from environment variables — never exposed to the frontend.
-- Chatbot context is role-scoped: public visitors get no private context, users
-  get only their own data, and staff receive aggregate statistics only.
-- Tracker records are scoped to the requesting user (`get_object_or_404`
+- **Anonymous chatbot path never calls Gemini** — only the 7 predefined FAQs
+  are returned, so anonymous traffic cannot drive paid API usage or load the
+  Gemini client.
+- **Authenticated chatbot path** builds context only from the authenticated
+  request; browser-supplied context / history is never trusted.
+- **Staff chatbot path** receives aggregate-only totals (no usernames, no
+  individual records); requests for individual data are refused without calling
+  Gemini.
+- **Tracker records** are scoped to the requesting user (`get_object_or_404`
   with `user=request.user` filter) — there is no way to enumerate another
   user's records.
+- **Prediction records** are scoped by `user` (authenticated) or `session_key`
+  (anonymous). Cross-user / cross-session access returns 403. PDF download,
+  delete, and JSON export all use the same scope.
 - Image bytes are never sent to Gemini.
 - `.env` is gitignored; `.env.example` contains placeholder values only.
 

@@ -13,6 +13,7 @@
     var input = document.getElementById('chatbotInput');
     var sendBtn = document.getElementById('chatbotSend');
     var messages = document.getElementById('chatbotMessages');
+    var faqsContainer = document.getElementById('chatbotFaqs');
 
     if (!fabBtn || !panel || !form) return;
 
@@ -20,6 +21,10 @@
     var scopeType = panel.getAttribute('data-chat-role') || 'public';
     var historyKey = 'derma_chat_history_' + scope;
     var messageUrl = panel.getAttribute('data-message-url') || '/chatbot/message/';
+
+    // True when the visitor is NOT signed in. Anonymous users get FAQ-only
+    // replies and the chatbot will never call Gemini on their behalf.
+    var isAnonymous = (scopeType === 'public');
 
     // Conversation held in JS only; lives for the current page session.
     // We persist in sessionStorage so it survives page navigations.
@@ -66,7 +71,7 @@
         var fallback = scopeType === 'staff'
             ? 'I can answer public site questions and provide anonymized site-wide totals. I cannot access usernames or individual records.'
             : (scopeType === 'public'
-                ? 'I can answer general questions and questions about this site. Sign in to ask about your own dashboard. I don\'t diagnose.'
+                ? 'I can answer 7 predefined questions for guests. Tap a button below, or sign in for detailed personalized answers. I don\'t diagnose.'
                 : 'I can answer public site questions and summarize your own dashboard and history. I cannot access another user\'s records. I don\'t diagnose.');
 
         return window.DERMA.t(key, fallback);
@@ -74,10 +79,16 @@
 
     function appendMessage(role, content, animate) {
         var wrap = document.createElement('div');
+        // Strict role → class mapping keeps user/right and bot/left alignment
+        // unambiguous. The CSS relies on these exact class names.
         wrap.className = 'chatbot-msg ' + (role === 'user' ? 'user' : 'chatbot-msg-bot');
+        wrap.setAttribute('data-role', role === 'user' ? 'user' : 'bot');
 
         var bubble = document.createElement('div');
         bubble.className = 'chatbot-msg-bubble';
+        // Force a sensible text-align per role so long Bangla/English lines
+        // stay right-aligned for the user and left-aligned for the bot.
+        bubble.style.textAlign = role === 'user' ? 'right' : 'left';
 
         // Never trust downstream content as raw HTML.
         bubble.innerHTML = sanitizeChatHtml(content);
@@ -92,9 +103,11 @@
     function appendTyping() {
         var wrap = document.createElement('div');
         wrap.className = 'chatbot-msg chatbot-msg-bot';
+        wrap.setAttribute('data-role', 'bot');
 
         var bubble = document.createElement('div');
         bubble.className = 'chatbot-msg-bubble';
+        bubble.style.textAlign = 'left';
         bubble.innerHTML = '<div class="chatbot-typing"><span></span><span></span><span></span></div>';
 
         wrap.appendChild(bubble);
@@ -102,6 +115,48 @@
         messages.scrollTop = messages.scrollHeight;
 
         return wrap;
+    }
+
+    function appendFaqs(faqs) {
+        // Remove any existing FAQ bar first (the guidance response can re-add it).
+        var existing = document.getElementById('chatbotFaqs');
+        if (existing) existing.remove();
+
+        if (!faqs || !faqs.length) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'chatbot-faqs';
+        wrap.id = 'chatbotFaqs';
+        wrap.setAttribute('role', 'group');
+        wrap.setAttribute('aria-label', 'Frequently asked questions');
+
+        faqs.forEach(function (faq) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chatbot-faq-btn';
+            btn.setAttribute('data-faq-id', faq.id);
+            btn.setAttribute('data-faq-question', faq.question);
+            btn.textContent = faq.question;
+            btn.addEventListener('click', function () {
+                sendFaq(faq.id, faq.question);
+            });
+            wrap.appendChild(btn);
+        });
+
+        messages.appendChild(wrap);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Wire up the server-rendered FAQ buttons (initial page load).
+    if (faqsContainer) {
+        var buttons = faqsContainer.querySelectorAll('.chatbot-faq-btn');
+        buttons.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var faqId = btn.getAttribute('data-faq-id');
+                var faqQuestion = btn.getAttribute('data-faq-question') || btn.textContent;
+                sendFaq(faqId, faqQuestion);
+            });
+        });
     }
 
     var lastFocusedEl = null;
@@ -188,6 +243,17 @@
             // Reset to welcome
             messages.innerHTML = '';
             appendMessage('model', welcomeMessage(), false);
+            // Re-add the FAQ bar for anonymous users.
+            if (isAnonymous && faqsContainer) {
+                var faqs = [];
+                faqsContainer.querySelectorAll('.chatbot-faq-btn').forEach(function (btn) {
+                    faqs.push({
+                        id: btn.getAttribute('data-faq-id'),
+                        question: btn.getAttribute('data-faq-question') || btn.textContent
+                    });
+                });
+                if (faqs.length) appendFaqs(faqs);
+            }
         });
     }
 
@@ -197,6 +263,69 @@
             closePanel();
         }
     });
+
+    function sendFaq(faqId, faqQuestion) {
+        if (!faqId) return;
+        // Show the FAQ question as a user-side bubble so the conversation
+        // reads naturally on both desktop and mobile.
+        appendMessage('user', faqQuestion, true);
+        history.push({ role: 'user', content: faqQuestion });
+        history = history.slice(-20);
+        persist();
+
+        // Hide the FAQ bar while a reply is in flight so the user cannot
+        // spam-click multiple buttons.
+        var faqsBar = document.getElementById('chatbotFaqs');
+        if (faqsBar) faqsBar.style.display = 'none';
+
+        var typing = appendTyping();
+
+        postMessage({ faq_id: faqId, language: (window.DERMA && window.DERMA.language) || 'en' })
+            .then(function (data) {
+                typing.remove();
+                var reply = data.reply || window.DERMA.t('chatbot.no_reply', '(no reply)');
+                appendMessage('model', reply, true);
+                history.push({ role: 'model', content: reply });
+                history = history.slice(-20);
+                persist();
+            })
+            .catch(function (err) {
+                typing.remove();
+                var msg = window.DERMA.t(
+                    'chatbot.error.network',
+                    'Sorry, I couldn\'t reach the assistant right now. Please try again in a moment. For urgent concerns, consult a dermatologist.'
+                );
+                appendMessage('model', msg, true);
+                history.push({ role: 'model', content: msg });
+                history = history.slice(-20);
+                persist();
+                console.error('DermaCheckerBD chatbot FAQ request failed:', err);
+            })
+            .finally(function () {
+                // Re-show the FAQ bar for anonymous users (so they can ask another).
+                if (isAnonymous) {
+                    var faqsBar2 = document.getElementById('chatbotFaqs');
+                    if (faqsBar2) faqsBar2.style.display = '';
+                }
+                input.focus();
+            });
+    }
+
+    function postMessage(payload) {
+        var csrfInput = document.getElementById('chatbotCsrf');
+        return fetch(messageUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfInput ? csrfInput.value : ''
+            },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin'
+        }).then(function (resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.json();
+        });
+    }
 
     // Send message
     form.addEventListener('submit', async function (e) {
@@ -219,30 +348,18 @@
         input.disabled = true;
         sendBtn.disabled = true;
 
+        // Hide the FAQ bar while a reply is in flight.
+        var faqsBar = document.getElementById('chatbotFaqs');
+        if (faqsBar) faqsBar.style.display = 'none';
+
         var typing = appendTyping();
 
         try {
-            var csrfInput = document.getElementById('chatbotCsrf');
-
-            var resp = await fetch(messageUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfInput ? csrfInput.value : ''
-                },
-                body: JSON.stringify({
-                    message: text,
-                    language: (window.DERMA && window.DERMA.language) || 'en',
-                    history: history.slice(0, -1)
-                }),
-                credentials: 'same-origin'
+            var data = await postMessage({
+                message: text,
+                language: (window.DERMA && window.DERMA.language) || 'en',
+                history: history.slice(0, -1)
             });
-
-            if (!resp.ok) {
-                throw new Error('HTTP ' + resp.status);
-            }
-
-            var data = await resp.json();
 
             // Replace typing bubble with reply
             typing.remove();
@@ -261,6 +378,12 @@
 
             history = history.slice(-20);
             persist();
+
+            // For anonymous users, the server may include a `faqs` array on
+            // guidance responses so we can re-render the FAQ quick-reply bar.
+            if (isAnonymous && data.faqs && data.faqs.length) {
+                appendFaqs(data.faqs);
+            }
         } catch (err) {
             typing.remove();
 
@@ -283,6 +406,11 @@
         } finally {
             input.disabled = false;
             sendBtn.disabled = false;
+            // Re-show the FAQ bar for anonymous users (so they can ask another).
+            if (isAnonymous) {
+                var faqsBar2 = document.getElementById('chatbotFaqs');
+                if (faqsBar2) faqsBar2.style.display = '';
+            }
             input.focus();
         }
     });

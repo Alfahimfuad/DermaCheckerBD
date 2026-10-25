@@ -6,6 +6,28 @@ SECURITY:
 - Rate-limited per-IP to prevent abuse.
 - No image bytes are accepted here.
 - The Gemini API key is used server-side only; it is never exposed to the frontend.
+
+ANONYMOUS vs AUTHENTICATED (privacy + RAM/CPU contract):
+- Anonymous (logged-out) visitors NEVER trigger a Gemini API call. They
+  receive only the 7 predefined FAQs in this repo (see ``apps.chatbot.faqs``).
+  This keeps Render memory and CPU flat regardless of anonymous traffic and
+  prevents paid Gemini calls from public visitors.
+- Authenticated users keep the full existing chatbot service: Gemini-powered
+  replies, the user's own dashboard summary (read from the authenticated
+  request — never from browser-supplied data), and aggregate staff totals
+  for users with the medical-queue permission.
+
+RESPONSE PAYLOAD CONTRACT (unchanged for authenticated users):
+- ``reply``    – the reply text (HTML allowlisted client-side).
+- ``offline``  – True when GeminiService is not configured (informational).
+- ``scope``    – "public" | "private" | "staff".
+- ``authed``   – bool, mirrors request.user.is_authenticated.
+- ``faq_id``   – present only for anonymous FAQ replies, identifies which FAQ
+                 was answered. Empty string when the anonymous message was a
+                 free-text query that did not match any FAQ.
+- ``faqs``     – present only on the welcome / guidance response, the 7 FAQs
+                 so the frontend can render the quick-reply buttons without a
+                 second round trip.
 """
 import json
 import logging
@@ -20,6 +42,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
+from apps.chatbot.faqs import (
+    FAQS, find_faq_id_by_text, get_faq_answer, list_faqs,
+)
 from apps.common.services.gemini import GeminiService, GeminiMessage
 from apps.common.services.prediction import PredictionService
 from apps.predictor.models import PredictionRecord
@@ -35,6 +60,11 @@ CHATBOT_ERRORS = {
         "unavailable": "দুঃখিত, এখন উত্তর তৈরি করা যাচ্ছে না। জরুরি সমস্যা হলে যোগ্য চিকিৎসকের পরামর্শ নিন।",
         "signin": "আপনার ব্যক্তিগত ড্যাশবোর্ডের তথ্য জানতে সাইন ইন করুন।",
         "staff_private": "আমি কোনো ব্যবহারকারীর নাম, ব্যক্তিগত রেকর্ড বা নির্দিষ্ট রোগীর ইতিহাস দেখাতে পারি না। আমি শুধু পরিচয়বিহীন সামগ্রিক সংখ্যা জানাতে পারি।",
+        "anon_guidance": (
+            "আমি অতিথি ব্যবহারকারীদের জন্য পূর্বনির্ধারিত ৭টি প্রশ্নের উত্তর দিতে পারি। "
+            "নিচের বোতামগুলোর যেকোনো একটি ক্লিক করুন, অথবা বিস্তারিত ব্যক্তিগত উত্তরের জন্য "
+            "সাইন ইন করুন।"
+        ),
     },
     "en": {
         "invalid": "Invalid request body.",
@@ -43,6 +73,10 @@ CHATBOT_ERRORS = {
         "unavailable": "I'm sorry, I couldn't generate a reply right now. For urgent concerns, please contact a qualified healthcare professional.",
         "signin": "Please sign in to ask about your personal dashboard.",
         "staff_private": "I can't show usernames, private records, or an individual patient's history. I can only provide anonymized, site-wide totals.",
+        "anon_guidance": (
+            "I can answer 7 predefined questions for guests. Click one of the "
+            "buttons below, or sign in for detailed personalized answers."
+        ),
     },
 }
 
@@ -232,6 +266,34 @@ def _has_staff_chat_access(user):
     )
 
 
+def _anon_faq_response(faq_id, language, *, authed_scope="public"):
+    """Build the JSON response for a successful anonymous FAQ answer."""
+    answer = get_faq_answer(faq_id, language=language)
+    return _json_response({
+        "reply": answer or CHATBOT_ERRORS[language]["unavailable"],
+        "offline": True,  # anonymous mode is always offline by design
+        "scope": authed_scope,
+        "authed": False,
+        "faq_id": faq_id,
+    })
+
+
+def _anon_guidance_response(language):
+    """Anonymous free-text that did not match a FAQ: explain the limit.
+
+    The response also carries the FAQ list so the frontend can render the
+    quick-reply buttons without a second round trip.
+    """
+    return _json_response({
+        "reply": CHATBOT_ERRORS[language]["anon_guidance"],
+        "offline": True,
+        "scope": "public",
+        "authed": False,
+        "faq_id": "",
+        "faqs": list_faqs(language),
+    })
+
+
 @require_POST
 @ratelimit(key="ip", rate=settings.CHATBOT_RATE_LIMIT, block=True)
 def message_view(request):
@@ -254,6 +316,46 @@ def message_view(request):
         language = _preferred_language(request)
         return _json_response({"reply": CHATBOT_ERRORS[language]["invalid"]}, status=400)
     language = _preferred_language(request, data)
+
+    authenticated = request.user.is_authenticated
+
+    # ---------- Anonymous path: FAQ-only, NO Gemini call ----------
+    if not authenticated:
+        # A FAQ button click sends ``faq_id`` directly.
+        raw_faq_id = data.get("faq_id")
+        if isinstance(raw_faq_id, str) and raw_faq_id:
+            faq_id = raw_faq_id.strip()[:32]
+            if faq_id in {item["id"] for item in FAQS}:
+                return _anon_faq_response(faq_id, language)
+            # Unknown faq_id — fall through to guidance (still no Gemini).
+            return _anon_guidance_response(language)
+
+        # Otherwise inspect the free-text message.
+        raw_text = data.get("message")
+        text = raw_text.strip() if isinstance(raw_text, str) else ""
+        if not text:
+            return _json_response({"reply": CHATBOT_ERRORS[language]["empty"]}, status=400)
+        if len(text) > 600:
+            return _json_response({"reply": CHATBOT_ERRORS[language]["long"]}, status=400)
+
+        matched_faq_id = find_faq_id_by_text(text, language=language)
+        if matched_faq_id:
+            return _anon_faq_response(matched_faq_id, language)
+
+        # Personal-data questions are gently redirected to sign in.
+        if _is_personal_data_request(text) or _is_individual_record_request(text):
+            return _json_response({
+                "reply": CHATBOT_ERRORS[language]["signin"],
+                "offline": True,
+                "scope": "public",
+                "authed": False,
+                "faq_id": "",
+            })
+
+        # Anything else: explain the FAQ-only limit. Still NO Gemini call.
+        return _anon_guidance_response(language)
+
+    # ---------- Authenticated path: full Gemini-powered chatbot ----------
     raw_text = data.get("message")
     text = raw_text.strip() if isinstance(raw_text, str) else ""
     if not text:
@@ -265,7 +367,6 @@ def message_view(request):
     # metrics are always reconstructed from the authenticated request below.
     history = _build_history(data.get("history"))
 
-    authenticated = request.user.is_authenticated
     staff_scope = _has_staff_chat_access(request.user)
     if staff_scope and _is_staff_private_data_request(text):
         return _json_response({
@@ -274,18 +375,9 @@ def message_view(request):
             "scope": "staff",
             "authed": True,
         })
-    if not authenticated and (
-        _is_personal_data_request(text) or _is_individual_record_request(text)
-    ):
-        return _json_response({
-            "reply": CHATBOT_ERRORS[language]["signin"],
-            "offline": not GeminiService.is_configured(),
-            "scope": "public",
-            "authed": False,
-        })
     if staff_scope:
         context = _staff_dashboard_context() if _is_staff_aggregate_request(text) else None
-    elif authenticated and _is_personal_data_request(text):
+    elif _is_personal_data_request(text):
         context = _account_dashboard_context(request.user)
     else:
         context = None
@@ -296,7 +388,7 @@ def message_view(request):
             "user_message": text,
             "context": context,
             "language": language,
-            "is_authenticated": authenticated,
+            "is_authenticated": True,
         }
         # Only send the added staff flag for staff requests. This keeps the
         # public/user call compatible with an already-running worker that may
@@ -322,6 +414,6 @@ def message_view(request):
     return _json_response({
         "reply": reply,
         "offline": not GeminiService.is_configured(),
-        "scope": "staff" if staff_scope else ("private" if authenticated else "public"),
-        "authed": authenticated,
+        "scope": "staff" if staff_scope else "private",
+        "authed": True,
     })

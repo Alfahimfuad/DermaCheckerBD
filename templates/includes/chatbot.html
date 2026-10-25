@@ -98,10 +98,23 @@
                 {% elif request.user.is_authenticated %}
                     I can answer public site questions and summarize your own dashboard. I only see your aggregate prediction totals and class counts, not your images or another user's records. I don't diagnose.
                 {% else %}
-                    I can answer questions about public information on this site. Sign in to ask about your own dashboard. I don't diagnose.
+                    I can answer 7 predefined questions for guests. Tap a button below, or sign in for detailed personalized answers. I don't diagnose.
                 {% endif %}
             </div>
         </div>
+
+        {% if not request.user.is_authenticated and chatbot_faqs %}
+            <div class="chatbot-faqs" id="chatbotFaqs" role="group" aria-label="Frequently asked questions">
+                {% for faq in chatbot_faqs %}
+                    <button
+                        type="button"
+                        class="chatbot-faq-btn"
+                        data-faq-id="{{ faq.id }}"
+                        data-faq-question="{{ faq.question }}"
+                    >{{ faq.question }}</button>
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
 
     <form id="chatbotForm" class="chatbot-form">

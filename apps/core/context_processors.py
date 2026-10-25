@@ -1,5 +1,6 @@
 """Context processor exposing feature flags + chatbot config to all templates."""
 from django.conf import settings
+from apps.chatbot.faqs import list_faqs
 from apps.common.services.gemini import GeminiService
 
 
@@ -22,16 +23,22 @@ def feature_flags(request):
         chatbot_role = "user"
         chatbot_scope = f"user-{user.pk}"
 
+    # Pre-compute the FAQ quick-reply list for the chatbot template. We use
+    # the request's UI language so the buttons render in the right script.
+    ui_language = (
+        request.LANGUAGE_CODE[:2]
+        if getattr(request, "LANGUAGE_CODE", "en").startswith(("en", "bn"))
+        else "en"
+    )
+    faq_lang = "bn" if ui_language == "bn" or request.COOKIES.get("derma_lang") == "bn" else "en"
+
     return {
         "similar_cases_enabled": settings.SIMILAR_CASES_ENABLED,
         "chatbot_configured": GeminiService.is_configured(),
         "chatbot_role": chatbot_role,
         "chatbot_scope": chatbot_scope,
+        "chatbot_faqs": list_faqs(faq_lang),
         "ml_backend": settings.ML_MODEL_BACKEND,
         "show_research_banner": settings.DEBUG,
-        "ui_language": (
-            request.LANGUAGE_CODE[:2]
-            if getattr(request, "LANGUAGE_CODE", "en").startswith(("en", "bn"))
-            else "en"
-        ),
+        "ui_language": ui_language,
     }
