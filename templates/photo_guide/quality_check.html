@@ -243,18 +243,6 @@
           <span data-i18n="predict.phone_btn">Predict Phone Image</span>
         </button>
       </div>
-      <p class="small text-muted mt-2 mb-0" data-i18n="pg.run_prediction_buttons_help">
-        <strong>Dermoscopic</strong> uses the HAM10000 ResNet50 model (7 classes).
-        <strong>Phone</strong> uses the separate SkinDisNet model (6 classes).
-        The image you uploaded above is reused — no need to upload again.
-      </p>
-      {% if not phone_model_configured %}
-        <p class="small text-muted mt-2 mb-0" data-i18n="pg.phone_model_unavailable">
-          <i data-lucide="alert-circle" style="width:14px;height:14px;vertical-align:-2px;"></i>
-          The phone-image prediction model is not configured. The Dermoscopic button still works;
-          pressing the Phone button will surface a clear configuration error.
-        </p>
-      {% endif %}
 
       {# Hidden phone-metadata form, populated by JS from the modal. #}
       <form method="post" action="{% url 'predictor:phone_image_predict' %}" enctype="multipart/form-data"
@@ -355,7 +343,14 @@
       onFile: function (file) { submit.disabled = !file; }
     });
 
-    var runButton = document.getElementById('runPredictionButton');
+    // The dedicated "Run prediction on this image" button used to live
+    // inside the quality-checker actions partial. It has been removed
+    // from there per the UI spec — only the Download-image button
+    // remains in that partial. The image-data attributes the page JS
+    // needs (data-image-url / data-customizer-url / data-file-name /
+    // data-enhanced) now live on #downloadQualityImage, so all the
+    // customizer + dual-prediction logic below reads from that element.
+    var runButton = document.getElementById('downloadQualityImage');
     var predictionForm = document.getElementById('qualityPredictionForm');
     var predictionName = document.getElementById('qualityPredictionName');
     var imageNameInput = document.getElementById('qualityImageName');
@@ -423,7 +418,6 @@
       customized = brightnessPercent !== 100 || contrastPercent !== 100;
       if (!customized) {
         runButton.dataset.imageUrl = automaticDataUrl || baseDataUrl;
-        runButton.disabled = false;
 
         if (previewImage) {
           previewImage.src = automaticDataUrl || baseDataUrl;
@@ -449,11 +443,9 @@
         if (dataUrlBytes(dataUrl) <= 10 * 1024 * 1024 - 64 * 1024) break;
       }
       if (dataUrlBytes(dataUrl) > 10 * 1024 * 1024 - 64 * 1024) {
-        runButton.disabled = true;
         if (transferError) transferError.hidden = false;
         return;
       }
-      runButton.disabled = false;
       runButton.dataset.imageUrl = dataUrl;
 
       if (previewImage) {
@@ -499,7 +491,6 @@
       });
       stageTimers.forEach(clearTimeout);
       stageTimers = [];
-      if (runButton) runButton.disabled = false;
     }
 
     function showTransferError(message) {
@@ -513,7 +504,7 @@
     function startPredictionProgress() {
       isSubmitting = true;
       if (scanImage) {
-        scanImage.src = runButton.dataset.imageUrl || baseDataUrl;
+        scanImage.src = (runButton && runButton.dataset.imageUrl) || baseDataUrl;
         scanImage.hidden = false;
       }
       overlay.hidden = false;
@@ -528,71 +519,13 @@
       });
     }
 
-    if (runButton && predictionForm) {
-      runButton.addEventListener('click', async function () {
-        if (isSubmitting) return;
-        var dataUrl = runButton.dataset.imageUrl || baseDataUrl;
-        var match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
-        if (!match || !window.fetch || !window.FormData || !window.Blob) {
-          showTransferError();
-          return;
-        }
-        var timeout;
-        try {
-          var binary = atob(match[2]);
-          var bytes = new Uint8Array(binary.length);
-          for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          var stem = safeImageStem();
-          var suffix = customized ? '-customized' : (runButton.dataset.enhanced === 'true' ? '-enhanced' : '');
-          var extension = {
-            'image/jpeg': 'jpg',
-            'image/png': 'png',
-            'image/webp': 'webp'
-          }[match[1]] || 'jpg';
-          var filename = stem + suffix + '.' + extension;
-
-          var formData = new FormData(predictionForm);
-          formData.set('image_name', currentImageName());
-          formData.append('image', new Blob([bytes], { type: match[1] }), filename);
-          runButton.disabled = true;
-          if (transferError) transferError.hidden = true;
-          startPredictionProgress();
-
-          var controller = window.AbortController ? new AbortController() : null;
-          timeout = setTimeout(function () {
-            if (controller) controller.abort();
-          }, 120000);
-          var response = await fetch(predictionForm.action, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin',
-            signal: controller ? controller.signal : undefined
-          });
-          clearTimeout(timeout);
-          if (response.redirected) {
-            window.location.assign(response.url);
-            return;
-          }
-
-          var responseHtml = await response.text();
-          var responseDocument = new DOMParser().parseFromString(responseHtml, 'text/html');
-          var serverMessage = responseDocument.querySelector('.medical-disclaimer [data-i18n-server]')
-            || responseDocument.querySelector('.medical-disclaimer p');
-          resetPredictionProgress();
-          showTransferError(serverMessage && serverMessage.textContent.trim());
-        } catch (error) {
-          clearTimeout(timeout);
-          resetPredictionProgress();
-          showTransferError(error.name === 'AbortError'
-            ? (window.DERMA && window.DERMA.t
-              ? window.DERMA.t('pg.transfer_timeout', 'Prediction request timed out. Please try again.')
-              : 'Prediction request timed out. Please try again.')
-            : (window.DERMA && window.DERMA.t
-              ? window.DERMA.t('pg.transfer_network_error', 'Image upload failed. Check your connection and try again.')
-              : 'Image upload failed. Check your connection and try again.'));
-        }
-      });
-    }
+    // The dedicated "Run prediction on this image" button used to live
+    // inside the quality-checker actions partial; it has been removed
+    // and the bottom-of-page dual-prediction buttons
+    // (#qualityRunDermo / #qualityRunPhone) are now the only prediction
+    // entry points on this page. predict-dual.js wires those buttons
+    // and uses the window.DERMA_QUALITY hooks below to read the image
+    // source, customize state, and overlay helpers.
 
     // Expose quality-check-specific state for predict-dual.js (which
     // drives the new bottom-of-page prediction buttons on this page).

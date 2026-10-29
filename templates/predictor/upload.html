@@ -104,15 +104,6 @@
             <span data-i18n="predict.phone_btn">Predict Phone Image</span>
           </button>
         </div>
-        <p class="small text-muted mt-2 mb-0 predict-buttons-help" data-i18n="predict.buttons_help">
-          Choose <strong>Dermoscopic</strong> for dermatoscope-captured images (7-class dermoscopic model) or <strong>Phone</strong> for mobile-camera photos (6-class phone-image model).
-        </p>
-        {% if not phone_model_configured %}
-          <p class="small text-muted mt-2 mb-0" id="phoneModelNotConfiguredNote" data-i18n="predict.phone_model_unavailable">
-            <i data-lucide="alert-circle" style="width:14px;height:14px;vertical-align:-2px;"></i>
-            The phone-image prediction model is not configured. Dermoscopic predictions still work; phone-image predictions will show a clear configuration error if pressed.
-          </p>
-        {% endif %}
       </form>
     </div>
 

@@ -4,18 +4,26 @@
          value="{{ image_name }}" maxlength="255" autocomplete="off">
   <div class="form-text" data-i18n="pg.image_name_help">Edit the label used for this image and its prediction record.</div>
 </div>
+{# The "Run prediction on this image" button has been moved to the dedicated
+   bottom-of-page section (#qualityRunPredictionSection) on quality_check.html.
+   Only the Download-image button remains inside this Image-Quality-Checker
+   actions partial, per the UI spec.
+
+   The data-image-url / data-customizer-url / data-file-name / data-enhanced
+   attributes below carry the image-data URL the quality-check page JS uses
+   to drive the brightness/contrast customizer AND the bottom-of-page
+   prediction buttons. They used to live on #runPredictionButton; they now
+   live on #downloadQualityImage so the JS keeps working after the button
+   was removed. #}
 <div class="d-grid gap-2 mt-3">
   <a class="btn app-btn-outline-primary" id="downloadQualityImage"
-     href="{{ customizer_data_url|default:'#' }}" download="skin-image.jpg">
+     href="{{ customizer_data_url|default:'#' }}" download="skin-image.jpg"
+     data-image-url="{{ prediction_data_url }}"
+     data-customizer-url="{% if customizer_data_url != prediction_data_url %}{{ customizer_data_url|default:'' }}{% endif %}"
+     data-file-name="{{ uploaded_name }}"
+     data-enhanced="{% if enhancement_report and enhancement_report.applied %}true{% else %}false{% endif %}">
     <i data-lucide="download" aria-hidden="true"></i> <span data-i18n="pg.download_image">Download image</span>
   </a>
-  <button type="button" class="btn app-btn-primary" id="runPredictionButton"
-          data-image-url="{{ prediction_data_url }}"
-          data-customizer-url="{% if customizer_data_url != prediction_data_url %}{{ customizer_data_url|default:'' }}{% endif %}"
-          data-file-name="{{ uploaded_name }}"
-          data-enhanced="{% if enhancement_report and enhancement_report.applied %}true{% else %}false{% endif %}">
-    <i data-lucide="zap" aria-hidden="true"></i> <span id="runPredictionLabel" data-i18n="pg.run_prediction">Run prediction on this image</span>
-  </button>
 </div>
 <div id="predictionTransferError" class="medical-disclaimer mt-3 mb-0" role="alert" hidden data-i18n="pg.transfer_error">
   The image could not be prepared for prediction. Please try uploading it again.
