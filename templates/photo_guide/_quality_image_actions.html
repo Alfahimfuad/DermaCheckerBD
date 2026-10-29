@@ -4,17 +4,8 @@
          value="{{ image_name }}" maxlength="255" autocomplete="off">
   <div class="form-text" data-i18n="pg.image_name_help">Edit the label used for this image and its prediction record.</div>
 </div>
-{# The "Run prediction on this image" button has been moved to the dedicated
-   bottom-of-page section (#qualityRunPredictionSection) on quality_check.html.
-   Only the Download-image button remains inside this Image-Quality-Checker
-   actions partial, per the UI spec.
 
-   The data-image-url / data-customizer-url / data-file-name / data-enhanced
-   attributes below carry the image-data URL the quality-check page JS uses
-   to drive the brightness/contrast customizer AND the bottom-of-page
-   prediction buttons. They used to live on #runPredictionButton; they now
-   live on #downloadQualityImage so the JS keeps working after the button
-   was removed. #}
+
 <div class="d-grid gap-2 mt-3">
   <a class="btn app-btn-outline-primary" id="downloadQualityImage"
      href="{{ customizer_data_url|default:'#' }}" download="skin-image.jpg"
