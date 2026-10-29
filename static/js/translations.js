@@ -136,6 +136,11 @@
       'overlay.stage4.title': 'ভিজ্যুয়াল রিপোর্ট প্রস্তুত হচ্ছে',
       'overlay.stage4.sub': 'রেকর্ড সংরক্ষণ, রিপোর্ট URL তৈরি',
       'overlay.disclaimer': 'প্রগ্রেস ইন্ডিকেটরগুলি ইলাস্ট্রেটিভ। সার্ভার রেসপন্স দিলেই আসল কমপ্লিশন সনাক্ত হয়।',
+      // Slow-prediction notice (replaces the old synchronous alert()).
+      // The amber notice appears inside the overlay after 60s if the
+      // request is still in flight. The user can keep waiting or cancel.
+      'overlay.slow_text': 'প্রেডিকশনে প্রত্যাশার চেয়ে বেশি সময় লাগছে। আপনি অপেক্ষা করতে পারেন, অথবা বাতিল করে আবার চেষ্টা করতে পারেন।',
+      'overlay.cancel': 'বাতিল করুন',
 
       // ============ PREDICTOR / RESULT ============
       'result.eyebrow': 'সংরক্ষিত বিশ্লেষণ',

@@ -81,6 +81,37 @@
 
   var stageTimers = [];
   var inFlight = false;
+  // Per-request AbortController for the fetch-based phone-image path.
+  // The native-form-submit dermoscopic path can't be aborted, but we
+  // still let the user click Cancel to unlock the UI (the navigation
+  // may complete later).
+  var currentController = null;
+  // Slow-notice timeout id — cleared when the request settles so the
+  // notice only fires if the request is genuinely still in flight.
+  var slowTimer = null;
+  // True when the user explicitly clicked the overlay's Cancel button.
+  // Used by the phone-image catch block to suppress the redundant
+  // "Prediction request timed out" error message.
+  var userCancelled = false;
+  var SLOW_TIMEOUT_MS = 60000;
+
+  function getSlowNotice() {
+    return document.getElementById('predictionOverlaySlow');
+  }
+
+  function hideSlowNotice() {
+    var slow = getSlowNotice();
+    if (slow) slow.hidden = true;
+    if (slowTimer) {
+      clearTimeout(slowTimer);
+      slowTimer = null;
+    }
+  }
+
+  function showSlowNotice() {
+    var slow = getSlowNotice();
+    if (slow) slow.hidden = false;
+  }
 
   function startOverlay(imageSrc) {
     var overlay = getOverlay();
@@ -104,6 +135,14 @@
         stages[index + 1].classList.add('is-active');
       }, delay));
     });
+    // Arm the slow-notice timer. If the request is still in flight
+    // after SLOW_TIMEOUT_MS, the non-blocking notice appears inside
+    // the overlay (no alert()). Cleared by resetOverlay()/hideSlowNotice()
+    // when the request settles.
+    hideSlowNotice();
+    slowTimer = setTimeout(function () {
+      if (inFlight) showSlowNotice();
+    }, SLOW_TIMEOUT_MS);
   }
 
   function resetOverlay() {
@@ -117,6 +156,7 @@
       scanImage.removeAttribute('src');
       scanImage.hidden = true;
     }
+    hideSlowNotice();
     var stages = getStages();
     stages.forEach(function (stage, index) {
       stage.classList.remove('is-active', 'is-done');
@@ -259,7 +299,13 @@
     formData.append('image', blob, filename);
 
     startOverlay(imageSrcForOverlay);
-    var controller = window.AbortController ? new AbortController() : null;
+    // Assign the controller to the module-level currentController so
+    // cancelInFlight() (called by the overlay's Cancel button) can abort
+    // this fetch when the user gives up waiting.
+    currentController = window.AbortController ? new AbortController() : null;
+    var controller = currentController;
+    // Hard cap at 120s — at that point we treat it as a real failure
+    // (not a slow-notice) and surface the network error.
     var timeoutId = setTimeout(function () {
       if (controller) controller.abort();
     }, 120000);
@@ -271,6 +317,7 @@
         signal: controller ? controller.signal : undefined,
       });
       clearTimeout(timeoutId);
+      currentController = null;
       if (response.redirected || (response.ok && response.url && response.url !== actionUrl)) {
         window.location.assign(response.url);
         return;
@@ -287,14 +334,22 @@
       showError(msg ? msg.textContent.trim() : undefined);
     } catch (err) {
       clearTimeout(timeoutId);
+      currentController = null;
       resetOverlay();
       inFlight = false;
       disableButtons(false);
       closeModal();
-      var msg = err && err.name === 'AbortError'
-        ? t('pg.transfer_timeout', 'Prediction request timed out. Please try again.')
-        : t('pg.transfer_network_error', 'Image upload failed. Check your connection and try again.');
-      showError(msg);
+      // If the user explicitly clicked Cancel, don't show an extra
+      // error — they already know. Otherwise surface the abort/network
+      // message.
+      var isAbort = err && err.name === 'AbortError';
+      if (!isAbort || !userCancelled) {
+        var msg = isAbort
+          ? t('pg.transfer_timeout', 'Prediction request timed out. Please try again.')
+          : t('pg.transfer_network_error', 'Image upload failed. Check your connection and try again.');
+        showError(msg);
+      }
+      userCancelled = false;
     }
   }
 
@@ -397,17 +452,42 @@
     });
   }
 
+  // `scheduleSafetyNet()` used to be a hard 60s timeout that fired
+  // alert('The prediction is taking longer than expected...') and reset
+  // the UI. That was wrong: it (a) blocked the page with a modal alert,
+  // (b) lied — "Please try again" — even though the request was still
+  // legitimately running on Render's free tier, and (c) hid the overlay
+  // while the request was still in flight, leaving the user confused.
+  //
+  // The slow-notice is now armed inside startOverlay() and shows a
+  // non-blocking amber notice inside the overlay itself. scheduleSafetyNet()
+  // is retained as a no-op for backwards compatibility with any caller
+  // that still invokes it, but it no longer does anything destructive.
   function scheduleSafetyNet() {
-    setTimeout(function () {
-      if (inFlight) {
-        inFlight = false;
-        disableButtons(false);
-        resetOverlay();
-        alert(t('predict.timeout_alert',
-          'The prediction is taking longer than expected. Please try again.'));
-      }
-    }, 60000);
+    /* intentionally a no-op — see comment above. */
   }
+
+  function cancelInFlight() {
+    if (!inFlight) return;
+    // Mark the cancellation so the phone-image catch block doesn't pop
+    // a redundant "Prediction request timed out" error — the user already
+    // knows; they clicked Cancel.
+    userCancelled = true;
+    // Abort the fetch-based phone-image request if one is active.
+    if (currentController) {
+      try { currentController.abort(); } catch (e) { /* ignore */ }
+      currentController = null;
+    }
+    inFlight = false;
+    disableButtons(false);
+    resetOverlay();
+  }
+
+  // Expose a tiny public API so the Cancel button in the overlay can
+  // call back into the dual-prediction controller.
+  window.DERMA_DUAL = {
+    cancelInFlight: cancelInFlight,
+  };
 
   // ---- Phone button → open modal -----------------------------------------
 
@@ -459,5 +539,16 @@
     wirePhoneButton('submitBtnPhone');
     wirePhoneButton('qualityRunPhone');
     wireModal();
+    // Wire up the overlay's Cancel button. It calls back into
+    // cancelInFlight() (exposed on window.DERMA_DUAL) which aborts the
+    // active fetch and unlocks the UI.
+    var overlayCancel = document.getElementById('predictionOverlayCancel');
+    if (overlayCancel) {
+      overlayCancel.addEventListener('click', function () {
+        if (window.DERMA_DUAL && typeof window.DERMA_DUAL.cancelInFlight === 'function') {
+          window.DERMA_DUAL.cancelInFlight();
+        }
+      });
+    }
   });
 })();

@@ -85,22 +85,9 @@
         <div class="chatbot-msg chatbot-msg-bot">
             <div
                 class="chatbot-msg-bubble"
-                {% if chatbot_role == "staff" %}
-                    data-i18n="chatbot.welcome_staff"
-                {% elif request.user.is_authenticated %}
-                    data-i18n="chatbot.welcome_private"
-                {% else %}
-                    data-i18n="chatbot.welcome_public"
-                {% endif %}
-            >
-                {% if chatbot_role == "staff" %}
-                    I can answer public site questions and provide anonymized site-wide totals. I cannot access usernames or individual records.
-                {% elif request.user.is_authenticated %}
-                    I can answer public site questions and summarize your own dashboard. I only see your aggregate prediction totals and class counts, not your images or another user's records. I don't diagnose.
-                {% else %}
-                    I can answer 7 predefined questions for guests. Tap a button below, or sign in for detailed personalized answers. I don't diagnose.
-                {% endif %}
-            </div>
+                {% if chatbot_role == "staff" %}data-i18n="chatbot.welcome_staff"
+                {% elif request.user.is_authenticated %}data-i18n="chatbot.welcome_private"
+                {% else %}data-i18n="chatbot.welcome_public"{% endif %}>{% if chatbot_role == "staff" %}I can answer public site questions and provide anonymized site-wide totals. I cannot access usernames or individual records.{% elif request.user.is_authenticated %}I can answer public site questions and summarize your own dashboard. I only see your aggregate prediction totals and class counts, not your images or another user's records. I don't diagnose.{% else %}I can answer 7 predefined questions for guests. Tap a button below, or sign in for detailed personalized answers. I don't diagnose.{% endif %}</div>
         </div>
 
         {% if not request.user.is_authenticated and chatbot_faqs %}
