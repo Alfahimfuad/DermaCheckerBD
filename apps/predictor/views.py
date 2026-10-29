@@ -26,13 +26,18 @@ from apps.common.services.prediction import (
     InvalidImageError, ModelNotLoadedError, PredictionError, PredictionService,
     confidence_to_fraction,
 )
+from apps.common.services.phone_prediction import (
+    PhoneImagePredictionService, PhoneInvalidImageError,
+    PhoneModelNotLoadedError, PhonePredictionError,
+    phone_confidence_to_fraction, _PhoneAPIBackend,
+)
 from apps.common.services.image_quality import ImageQualityService
 from apps.common.services.reliability import ReliabilityService
 from apps.common.services.wrong_input import WrongInputService
 from apps.common.services.pdf_report import PdfReportService
 from apps.common.services._hydrate import hydrate
 
-from .forms import ImageUploadForm
+from .forms import ImageUploadForm, PhoneImageMetadataForm
 from .models import PredictionRecord
 
 logger = logging.getLogger(__name__)
@@ -83,10 +88,26 @@ def upload_view(request):
     if request.method == "POST":
         return _handle_upload(request)
     form = ImageUploadForm()
-    return render(request, "predictor/upload.html", {
+    return render(request, "predictor/upload.html", _upload_context(form))
+
+
+
+def _upload_context(form, **extra):
+    """Shared context for every render of predictor/upload.html.
+
+    Keeps the unified upload card's two prediction buttons + the
+    supported-category cards working across every error path in
+    _handle_upload.
+    """
+    ctx = {
         "form": form,
         "classes": PredictionService.class_metadata(),
-    })
+        "phone_classes": PhoneImagePredictionService.class_metadata(),
+        "phone_model_configured": PhoneImagePredictionService.is_configured(),
+        "prediction_min_quality_score": settings.PREDICTION_MIN_QUALITY_SCORE,
+    }
+    ctx.update(extra)
+    return ctx
 
 
 def _handle_upload(request):
@@ -103,22 +124,15 @@ def _handle_upload(request):
                 error_msg = "; ".join(form.errors[first_field])
             except Exception:
                 pass
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": error_msg,
-        })
+        return render(request, "predictor/upload.html", _upload_context(form, error=error_msg))
 
     uploaded = request.FILES["image"]
     if uploaded.content_type not in ALLOWED_TYPES:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"Unsupported file type {uploaded.content_type!r}. Use JPG, PNG, or WEBP.",
-        })
+        return render(request, "predictor/upload.html", _upload_context(
+            form, error=f"Unsupported file type {uploaded.content_type!r}. Use JPG, PNG, or WEBP."
+        ))
     if uploaded.size > MAX_BYTES:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"File too large ({uploaded.size//1024} KB). Maximum is 10 MB.",
-        })
+        return render(request, "predictor/upload.html", _upload_context(form, error=f"File too large ({uploaded.size//1024} KB). Maximum is 10 MB."))
 
     # Read bytes once
     image_bytes = uploaded.read()
@@ -134,31 +148,24 @@ def _handle_upload(request):
             content_type=uploaded.content_type,
         )
     except NonSkinImageError:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": (
+        return render(request, "predictor/upload.html", _upload_context(
+            form,
+            error=(
                 "This image was classified as non-skin. Please upload a clear "
                 "photo of a skin lesion to continue."
-            ),
-        })
+            )
+        ))
     except PredictionError:
         logger.exception("Skin/non-skin validation failed.")
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": (
-                "Image validation could not be completed. Please try again later."
-            ),
-        })
+        return render(request, "predictor/upload.html", _upload_context(
+            form,
+            error="Image validation could not be completed. Please try again later."
+        ))
 
     # Wrong-input protection (corrupt file / non-skin)
     wrong_report, pil_image = WrongInputService.validate_bytes(image_bytes)
     if not wrong_report.is_valid_image or not pil_image:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": wrong_report.warning,
-            "details": wrong_report.details,
-            "suggestions": wrong_report.suggestions,
-        })
+        return render(request, "predictor/upload.html", _upload_context(form, error=wrong_report.warning, details=wrong_report.details, suggestions=wrong_report.suggestions))
 
     # Quality check
     try:
@@ -185,21 +192,12 @@ def _handle_upload(request):
         else:
             prediction = PredictionService.predict_pil(pil_image)
     except InvalidImageError as e:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"Could not process image: {e}",
-        })
+        return render(request, "predictor/upload.html", _upload_context(form, error=f"Could not process image: {e}"))
     except ModelNotLoadedError as e:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"Model is not loaded. {e}",
-        })
+        return render(request, "predictor/upload.html", _upload_context(form, error=f"Model is not loaded. {e}"))
     except PredictionError:
         logger.exception("Prediction failed.")
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": "Prediction could not be completed. Please try again later.",
-        })
+        return render(request, "predictor/upload.html", _upload_context(form, error="Prediction could not be completed. Please try again later."))
 
     # Reliability check (run automatically; user can ignore if not interested)
     try:
@@ -234,6 +232,10 @@ def _handle_upload(request):
         reliability_report=reliability_report.as_dict() if reliability_report else {},
         wrong_input_report=wrong_report.as_dict(),
         backend=prediction.backend,
+        # The existing /predict/ upload endpoint uses the HAM10000
+        # dermoscopic model — explicitly tag the record so the result
+        # template knows to render the seven-class probability table.
+        model_type="dermoscopic",
     )
     _save_pil_image_to_field(record, pil_image, record.image_name)
     record.save()
@@ -269,9 +271,18 @@ def result_view(request, reference_id: str):
     reliability = hydrate(record.reliability_report) if record.reliability_report else None
     wrong_input = hydrate(record.wrong_input_report) if record.wrong_input_report else None
 
+    # Choose the right class metadata based on which workflow produced
+    # this record. Phone records (SkinDisNet) use the 6-class list;
+    # dermoscopic records (HAM10000) use the 7-class list.
+    is_phone_record = (record.model_type == "phone")
+    if is_phone_record:
+        active_class_metadata = PhoneImagePredictionService.class_metadata()
+    else:
+        active_class_metadata = PredictionService.class_metadata()
+
     class_names = {
         item["code"]: item["name"]
-        for item in PredictionService.class_metadata()
+        for item in active_class_metadata
     }
     probability_rows = []
     for code, raw_probability in (record.probabilities or {}).items():
@@ -328,7 +339,8 @@ def result_view(request, reference_id: str):
         "quality": quality,
         "reliability": reliability,
         "wrong_input": wrong_input,
-        "classes": PredictionService.class_metadata(),
+        "classes": active_class_metadata,
+        "is_phone_record": is_phone_record,
         "probability_rows": probability_rows,
         # JSON-encoded chart payload for Chart.js consumption on the client.
         # Each row contains {code, name, probability (0..1), percent (0..100)}.
@@ -338,7 +350,7 @@ def result_view(request, reference_id: str):
                 "name": row["name"],
                 "percent": round(row["percent"], 2),
                 "category": next(
-                    (c["category"] for c in PredictionService.class_metadata()
+                    (c.get("category") for c in active_class_metadata
                      if c["code"] == row["code"]),
                     "unknown",
                 ),
@@ -517,3 +529,199 @@ def clear_history_view(request):
     return render(request, "predictor/confirm_clear_history.html", {
         "record_count": records.count(),
     })
+
+
+# ---------------------------------------------------------------------------
+# Phone-image (SkinDisNet) prediction — completely separate workflow
+# ---------------------------------------------------------------------------
+
+def _phone_metadata_from_post(post) -> dict:
+    """Extract phone-image metadata from POST data.
+
+    Only fields the model is configured to consume are kept. ``patient_id``
+    is NEVER returned here — it is collected in the form for record
+    association but is intentionally excluded from the metadata payload
+    so it can never reach the model.
+    """
+    out = {}
+    if getattr(settings, "PHONE_MODEL_USES_AGE", False):
+        age_raw = (post.get("age") or "").strip()
+        if age_raw:
+            try:
+                age = int(age_raw)
+                if settings.PHONE_MODEL_AGE_MIN <= age <= settings.PHONE_MODEL_AGE_MAX:
+                    out["age"] = age
+            except (TypeError, ValueError):
+                pass
+    if getattr(settings, "PHONE_MODEL_USES_SEX", False):
+        sex = (post.get("sex") or "").strip().lower()
+        if sex in {"male", "female", "other", "unknown"}:
+            out["sex"] = sex
+    if getattr(settings, "PHONE_MODEL_USES_LOCATION", False):
+        loc = (post.get("lesion_location") or "").strip()
+        if loc and loc in settings.PHONE_LESION_LOCATIONS:
+            out["lesion_location"] = loc
+    return out
+
+
+@require_http_methods(["GET", "POST"])
+def phone_image_predict_view(request):
+    """Phone-camera image (SkinDisNet) prediction endpoint.
+
+    Completely separate from the HAM10000 dermoscopic endpoint at
+    /predict/. The phone workflow:
+
+    1. Validate file type, file size, and readability.
+    2. Run the existing wrong-input + image-quality checks.
+    3. Reject any image whose quality score is below
+       PREDICTION_MIN_QUALITY_SCORE (default 50%).
+    4. Collect metadata ONLY for fields the model is configured to
+       consume (settings PHONE_MODEL_USES_*). Patient ID is stored on
+       the record but never sent to the model.
+    5. Call PhoneImagePredictionService — never the HAM10000 service.
+    6. Save a PredictionRecord tagged model_type='phone' and redirect
+       to the existing result page.
+
+    If the phone-image model is not configured (ML_PHONE_MODEL_BACKEND
+    is unset or the weights are missing), return a clear error rather
+    than fabricating a prediction.
+    """
+    if request.method != "POST":
+        # GET: render the unified upload page (same template as the
+        # dermoscopic flow) so users always land on the dual-button
+        # upload card regardless of entry point.
+        form = ImageUploadForm()
+        return render(request, "predictor/upload.html", _upload_context(form))
+
+    form = PhoneImageMetadataForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return _phone_error_response(request, "Please correct the form errors below.")
+
+    uploaded = request.FILES["image"]
+    if uploaded.content_type not in ALLOWED_TYPES:
+        return _phone_error_response(
+            request,
+            f"Unsupported file type {uploaded.content_type!r}. "
+            "Use JPG, PNG, or WEBP.",
+        )
+    if uploaded.size > MAX_BYTES:
+        return _phone_error_response(
+            request,
+            f"File too large ({uploaded.size//1024} KB). Maximum is 10 MB.",
+        )
+
+    image_bytes = uploaded.read()
+    uploaded.seek(0)
+
+    # Wrong-input protection (corrupt file / non-skin).
+    wrong_report, pil_image = WrongInputService.validate_bytes(image_bytes)
+    if not wrong_report.is_valid_image or not pil_image:
+        return _phone_error_response(
+            request,
+            wrong_report.warning,
+            details=wrong_report.details,
+            suggestions=wrong_report.suggestions,
+        )
+
+    # Quality gate — reject anything below the configured threshold.
+    try:
+        quality_report = ImageQualityService.assess_pil(pil_image)
+    except Exception as exc:
+        logger.warning("Phone-image quality check failed: %s", exc)
+        return _phone_error_response(
+            request, "Could not assess image quality. Please try again."
+        )
+    quality_score = float(getattr(quality_report, "overall_score", 0.0) or 0.0)
+    min_score = float(settings.PREDICTION_MIN_QUALITY_SCORE)
+    if quality_score < min_score:
+        return _phone_error_response(
+            request,
+            "This image's quality score is below "
+            f"{min_score:.0f}%. Please upload a clearer, well-lit photo of "
+            "the skin lesion before running a phone-image prediction.",
+        )
+
+    metadata = _phone_metadata_from_post(request.POST)
+
+    # Predict — phone-image model ONLY.
+    try:
+        backend = PhoneImagePredictionService._resolve_backend()
+        # Forward the original uploaded file to the API backend (zero copy,
+        # exactly the user's pixels, mirrors the HAM10000 API path).
+        if isinstance(backend, _PhoneAPIBackend):
+            prediction = PhoneImagePredictionService.predict_uploaded(
+                uploaded, metadata=metadata
+            )
+        else:
+            prediction = PhoneImagePredictionService.predict_pil(
+                pil_image, metadata=metadata
+            )
+    except PhoneModelNotLoadedError as exc:
+        # Surface the exact reason the model is unavailable — never
+        # fabricate a fake prediction.
+        return _phone_error_response(
+            request,
+            f"The phone-image prediction model is not configured. {exc}",
+        )
+    except PhoneInvalidImageError as exc:
+        return _phone_error_response(request, f"Could not process image: {exc}")
+    except PhonePredictionError as exc:
+        logger.exception("Phone-image prediction failed.")
+        return _phone_error_response(
+            request,
+            "Phone-image prediction could not be completed. "
+            "Please try again later.",
+        )
+
+    # Reliability check is meaningful only on the local backends. The API
+    # backend can't be invoked on a PIL variant without re-encoding, so we
+    # skip it for phone-API records (consistent with the HAM10000 API path).
+    reliability_report = None
+    if not isinstance(backend, _PhoneAPIBackend):
+        try:
+            reliability_report = ReliabilityService.assess_pil(pil_image)
+        except Exception as exc:
+            logger.warning("Phone-image reliability check failed: %s", exc)
+
+    session_key = (
+        "" if request.user.is_authenticated else _resolve_session_key(request)
+    )
+    image_name = (
+        form.cleaned_data.get("image_name", "").strip()
+        or Path(uploaded.name).stem
+        or "phone-image"
+    )[:255]
+    record = PredictionRecord(
+        user=request.user if request.user.is_authenticated else None,
+        session_key=session_key,
+        reference_id=_new_reference_id(),
+        image_name=image_name,
+        patient_name=(request.POST.get("patient_id") or "").strip()[:150],
+        predicted_class=prediction.predicted_class,
+        predicted_name=prediction.predicted_name,
+        category="unknown",  # SkinDisNet classes have no benign/malignant tag
+        confidence=prediction.confidence,
+        probabilities=prediction.probabilities,
+        quality_report=quality_report.as_dict() if quality_report else {},
+        reliability_report=(
+            reliability_report.as_dict() if reliability_report else {}
+        ),
+        wrong_input_report=wrong_report.as_dict(),
+        backend=prediction.backend,
+        model_type="phone",
+    )
+    _save_pil_image_to_field(record, pil_image, record.image_name)
+    record.save()
+    return redirect("predictor:result", reference_id=record.reference_id)
+
+
+def _phone_error_response(request, error, details=None, suggestions=None):
+    """Render the unified upload page with an error message — used by
+    the phone-image workflow so the user stays on the same upload card
+    they were on when the error occurred."""
+    ctx = _upload_context(ImageUploadForm(), error=error)
+    if details is not None:
+        ctx["details"] = details
+    if suggestions is not None:
+        ctx["suggestions"] = suggestions
+    return render(request, "predictor/upload.html", ctx)

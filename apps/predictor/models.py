@@ -55,6 +55,19 @@ class PredictionRecord(models.Model):
 
     backend = models.CharField(max_length=32, default="mock")
 
+    # Which prediction workflow produced this record.
+    # - "dermoscopic" (default): the existing HAM10000 ResNet50 path.
+    # - "phone":        the separate SkinDisNet phone-image path.
+    # Both flows store records in the same table; this field is the only
+    # way the result template knows which class list to render.
+    model_type = models.CharField(
+        max_length=16,
+        choices=[("dermoscopic", "Dermoscopic (HAM10000)"),
+                 ("phone", "Phone Image (SkinDisNet)")],
+        default="dermoscopic",
+        db_index=True,
+    )
+
     REVIEW_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("appointment_planned", "Appointment Planned"),

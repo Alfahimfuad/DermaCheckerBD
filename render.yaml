@@ -85,6 +85,38 @@ services:
       - key: ML_MODEL_CLASSES
         value: "akiec,bcc,bkl,df,mel,nv,vasc"
 
+      # Phone-image (SkinDisNet) prediction model — fully separate workflow.
+      # Leave ML_PHONE_MODEL_BACKEND empty/unset to DISABLE phone-image
+      # predictions (the button surfaces a clear "not configured" error).
+      # Set to "api" to forward phone uploads to a separate FastAPI service,
+      # or "keras" to load a separately trained Keras model from ML_PHONE_MODEL_PATH.
+      - key: ML_PHONE_MODEL_BACKEND
+        value: ""
+      - key: ML_PHONE_MODEL_CLASSES
+        value: "atopic_dermatitis,contact_dermatitis,eczema,scabies,seborrheic_dermatitis,tinea_corporis"
+      # Optional separate FastAPI service for phone images.
+      - key: AI_PHONE_API_URL
+        sync: false
+      - key: AI_PHONE_API_TOKEN
+        sync: false
+
+      # Metadata fields the trained phone-image model actually consumes.
+      # Default to False — never assume the model uses age/sex/location.
+      # Patient ID is for record-keeping only; it is NEVER a model feature.
+      - key: PHONE_MODEL_USES_AGE
+        value: "False"
+      - key: PHONE_MODEL_USES_SEX
+        value: "False"
+      - key: PHONE_MODEL_USES_LOCATION
+        value: "False"
+      - key: PHONE_LESION_LOCATIONS
+        value: ""
+
+      # Quality-score threshold (0..100) below which both prediction
+      # buttons are disabled. Per spec, predictions require >= 50%.
+      - key: PREDICTION_MIN_QUALITY_SCORE
+        value: "50"
+
       # Similar Cases Feature
       - key: SIMILAR_CASES_ENABLED
         value: "False"

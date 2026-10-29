@@ -13,7 +13,15 @@
   <div class="container-xl report-container">
     <header class="report-heading">
       <div>
-        <p class="report-eyebrow"><span data-i18n="result.eyebrow">Saved analysis</span> <span aria-hidden="true">·</span> <span data-i18n="result.single_image">Single image</span></p>
+        <p class="report-eyebrow">
+          <span data-i18n="result.eyebrow">Saved analysis</span>
+          <span aria-hidden="true">·</span>
+          {% if is_phone_record %}
+            <span data-i18n="result.phone_image">Phone image</span>
+          {% else %}
+            <span data-i18n="result.single_image">Single image</span>
+          {% endif %}
+        </p>
         <h1 data-i18n="result.title">Prediction result</h1>
         <p class="report-meta">
           <span data-i18n="result.reference">Reference</span> <strong>{{ record.reference_id }}</strong>
@@ -59,6 +67,7 @@
       </section>
 
       <section class="report-card report-summary-card" aria-labelledby="prediction-title">
+        {% if not is_phone_record %}
         <div class="report-category category-{{ record.category|slugify }}">
           {% if record.category == "malignant" %}
             <i data-lucide="alert-octagon" aria-hidden="true"></i>
@@ -69,6 +78,12 @@
           {% endif %}
           <span data-i18n="result.model_category">Model category:</span> <span data-i18n-category="{{ record.category }}">{{ record.category|title }}</span>
         </div>
+        {% else %}
+        <div class="report-category category-unknown">
+          <i data-lucide="smartphone" aria-hidden="true"></i>
+          <span data-i18n="result.phone_image_model">Phone-image model (SkinDisNet)</span>
+        </div>
+        {% endif %}
 
         <div class="report-result-line">
           <div>
@@ -105,7 +120,11 @@
 
         <div class="report-probabilities">
           <div class="report-section-heading">
-            <h3 data-i18n="result.seven_class_probs">Seven-class probabilities</h3>
+            {% if is_phone_record %}
+              <h3 data-i18n="result.six_class_probs">Six-class probabilities</h3>
+            {% else %}
+              <h3 data-i18n="result.seven_class_probs">Seven-class probabilities</h3>
+            {% endif %}
             <span data-i18n="result.model_output">Model output</span>
           </div>
           {% if probability_rows %}
