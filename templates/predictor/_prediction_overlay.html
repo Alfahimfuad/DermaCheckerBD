@@ -46,20 +46,5 @@
       <i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;"></i>
       <span data-i18n="overlay.disclaimer">The progress indicators are illustrative. Actual completion is detected only when the server responds.</span>
     </div>
-
-    {# Slow-prediction notice — shown by predict-dual.js when the request
-       is still in flight after the configured timeout (default 60s).
-       This REPLACES the old synchronous alert('The prediction is taking
-       longer than expected...'). The notice is non-blocking: the
-       request stays in flight and the user can choose to wait or
-       cancel. The Cancel button calls window.DERMA_DUAL.cancelInFlight(). #}
-    <div class="prediction-overlay-slow" id="predictionOverlaySlow" role="alert" hidden>
-      <div class="prediction-overlay-slow-text">
-        <i data-lucide="clock-alert" style="width:16px;height:16px;vertical-align:-2px;color:var(--primary-dark);"></i>
-        <span data-i18n="overlay.slow_text">The prediction is taking longer than expected. You can keep waiting, or cancel and try again.</span>
-      </div>
-      <button type="button" class="btn app-btn-outline-primary prediction-overlay-slow-btn"
-              id="predictionOverlayCancel" data-i18n="overlay.cancel">Cancel</button>
-    </div>
   </div>
 </div>

@@ -1804,50 +1804,6 @@ a:hover { color: var(--primary); }
   text-align: left;
 }
 
-/* Slow-prediction notice — replaces the old synchronous
-   alert('The prediction is taking longer than expected...').
-   The notice is non-blocking: the prediction request stays
-   in flight, the overlay stays visible, and the user can
-   either keep waiting or cancel via the button. */
-.prediction-overlay-slow {
-  margin-top: 0.75rem;
-  padding: 0.75rem 0.9rem;
-  background: #fffbeb;            /* amber-50 */
-  border: 1px solid #fcd34d;     /* amber-300 */
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.prediction-overlay-slow[hidden] { display: none; }
-.prediction-overlay-slow-text {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 0.85rem;
-  color: var(--text);
-  line-height: 1.4;
-  text-align: left;
-}
-.prediction-overlay-slow-btn {
-  flex: 0 0 auto;
-  font-size: 0.85rem;
-  padding: 0.4rem 0.85rem;
-}
-@media (max-width: 575.98px) {
-  .prediction-overlay-slow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .prediction-overlay-slow-btn {
-    width: 100%;
-  }
-}
-
 /* ---- Nearby Doctor radar overlay ---- */
 .radar-overlay {
   position: absolute;
