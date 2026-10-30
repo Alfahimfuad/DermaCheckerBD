@@ -1039,14 +1039,15 @@ a:hover { color: var(--primary); }
 .chatbot-msg { display: flex; flex: 0 0 auto; min-width: 0; }
 .chatbot-msg.user { justify-content: flex-end; }
 .chatbot-msg-bubble {
-  max-width: 80%;
-  min-width: 0;
-  padding: 0.6rem 0.85rem;
-  border-radius: 14px;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+    max-width: 80%;
+    min-width: 0;
+    padding: 0.6rem 0.85rem;
+    border-radius: 14px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    text-align: left;
 }
 .chatbot-msg-bot .chatbot-msg-bubble {
   background: white;
