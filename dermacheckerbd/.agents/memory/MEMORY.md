@@ -1,1 +1,0 @@
-- [Local Django tests](test-database-ssl.md) — set `DATABASE_URL=` to use SQLite when the injected workspace PostgreSQL endpoint rejects required SSL.
