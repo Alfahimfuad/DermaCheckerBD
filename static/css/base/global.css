@@ -286,6 +286,26 @@
   border-color: #bbf7d0;
 }
 
+.model-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.model-type-chip.is-phone {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+.model-type-chip svg { flex: 0 0 11px; }
+
 .app-card {
   background: var(--bg-card);
   border: 1px solid var(--border);

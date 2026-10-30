@@ -1,4 +1,3 @@
-"""Predictor views: upload, predict, result, history, PDF download."""
 from __future__ import annotations
 
 import io
@@ -11,20 +10,23 @@ from pathlib import Path
 from PIL import Image as PILImage
 
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.db.models import Q
-from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils.text import get_valid_filename
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from apps.common.services.ai_api import NonSkinImageError, validate_skin_image
 from apps.common.services.prediction import (
     InvalidImageError, ModelNotLoadedError, PredictionError, PredictionService,
     confidence_to_fraction,
+)
+from apps.common.services.phone_prediction import (
+    PhoneImagePredictionService,
+    PhoneInvalidImageError,
+    PhoneModelNotLoadedError,
+    PhonePredictionError,
 )
 from apps.common.services.image_quality import ImageQualityService
 from apps.common.services.reliability import ReliabilityService
@@ -40,13 +42,21 @@ logger = logging.getLogger(__name__)
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_BYTES = 10 * 1024 * 1024
 
+IMAGE_TYPE_DERMOSCOPIC = "dermoscopic"
+IMAGE_TYPE_PHONE = "phone"
+
+
+class _UploadRejected(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
 
 def _new_reference_id() -> str:
     return secrets.token_hex(8).upper()
 
 
 def _save_pil_image_to_field(record: PredictionRecord, pil_image: PILImage, original_name: str):
-    """Save a PIL image to the record.image field as JPEG."""
     buf = io.BytesIO()
     pil_image.convert("RGB").save(buf, format="JPEG", quality=92)
     safe_name = get_valid_filename(original_name.strip())[:100] or "patient"
@@ -58,195 +68,236 @@ def _save_pil_image_to_field(record: PredictionRecord, pil_image: PILImage, orig
 
 
 def _resolve_session_key(request) -> str:
-    """Return the visitor's session key, ensuring the session exists."""
     if not request.session.session_key:
         request.session.create()
     return request.session.session_key or ""
 
 
 def _scope_queryset(request):
-    """Return a queryset of PredictionRecords visible to this request.
-
-    - Authenticated user → their own records only.
-    - Anonymous visitor → records created in this session (via session_key).
-      Records with session_key='' (legacy) are link-only.
-    """
     if request.user.is_authenticated:
         return PredictionRecord.objects.filter(user=request.user)
     sk = _resolve_session_key(request)
     return PredictionRecord.objects.filter(session_key=sk)
 
 
-@require_http_methods(["GET", "POST"])
-def upload_view(request):
-    """Upload + predict + report page. Single endpoint for simplicity."""
-    if request.method == "POST":
-        return _handle_upload(request)
-    form = ImageUploadForm()
-    return render(request, "predictor/upload.html", {
+def _upload_context(form: ImageUploadForm | None = None, **extra) -> dict:
+    form = form or ImageUploadForm()
+    return {
         "form": form,
         "classes": PredictionService.class_metadata(),
-    })
+        "phone_classes": PhoneImagePredictionService.class_metadata(),
+        "phone_configured": PhoneImagePredictionService.is_configured(),
+        "lesion_locations": getattr(settings, "PHONE_LESION_LOCATIONS", []),
+        "sex_choices": getattr(settings, "PHONE_SEX_CHOICES", []),
+        "phone_uses_age": getattr(settings, "PHONE_MODEL_USES_AGE", True),
+        "phone_uses_sex": getattr(settings, "PHONE_MODEL_USES_SEX", True),
+        "phone_uses_location": getattr(settings, "PHONE_MODEL_USES_LOCATION", True),
+        "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "HAM10000 ResNet50"),
+        "phone_model_name": getattr(
+            settings, "SKINDISNET_MODEL_NAME",
+            "SkinDisNet EfficientNetB0 + Metadata Fusion",
+        ),
+        **extra,
+    }
 
 
-def _handle_upload(request):
-    """Process an upload: validate, quality-check, predict, optionally
-    reliability-check, save, and redirect to the result page."""
-    form = ImageUploadForm(request.POST, request.FILES)
-    if not form.is_valid():
-        # Surface the actual form errors instead of a generic message so
-        # the user knows what went wrong (file type, file size, missing).
-        error_msg = "Please correct the errors below."
-        if form.errors:
-            try:
-                first_field = next(iter(form.errors))
-                error_msg = "; ".join(form.errors[first_field])
-            except Exception:
-                pass
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": error_msg,
-        })
+def _reject_upload(request, message, **extra):
+    return render(request, "predictor/upload.html", _upload_context(error=message, **extra))
 
-    uploaded = request.FILES["image"]
-    if uploaded.content_type not in ALLOWED_TYPES:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"Unsupported file type {uploaded.content_type!r}. Use JPG, PNG, or WEBP.",
-        })
-    if uploaded.size > MAX_BYTES:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"File too large ({uploaded.size//1024} KB). Maximum is 10 MB.",
-        })
 
-    # Read bytes once
-    image_bytes = uploaded.read()
-    uploaded.seek(0)
-
-    # Gate every upload through the separate Skin/Non-Skin API before any
-    # lesion prediction. Existing validation and prediction paths continue
-    # unchanged after the API confirms the image is skin.
+def _predict_dermoscopic(uploaded, pil_image):
+    model_name = getattr(settings, "HAM10000_MODEL_NAME", "HAM10000 ResNet50")
+    model_version = getattr(settings, "HAM10000_MODEL_VERSION", "")
+    backend = PredictionService._resolve_backend()
     try:
-        validate_skin_image(
-            image_bytes,
-            filename=uploaded.name,
-            content_type=uploaded.content_type,
-        )
-    except NonSkinImageError:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": (
-                "This image was classified as non-skin. Please upload a clear "
-                "photo of a skin lesion to continue."
-            ),
-        })
-    except PredictionError:
-        logger.exception("Skin/non-skin validation failed.")
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": (
-                "Image validation could not be completed. Please try again later."
-            ),
-        })
-
-    # Wrong-input protection (corrupt file / non-skin)
-    wrong_report, pil_image = WrongInputService.validate_bytes(image_bytes)
-    if not wrong_report.is_valid_image or not pil_image:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": wrong_report.warning,
-            "details": wrong_report.details,
-            "suggestions": wrong_report.suggestions,
-        })
-
-    # Quality check
-    try:
-        quality_report = ImageQualityService.assess_pil(pil_image)
-    except Exception as e:
-        logger.warning("Quality check failed: %s", e)
-        quality_report = None
-
-    # Predict
-    # When the backend is the FastAPI ``api`` backend, forward the
-    # ORIGINAL uploaded file to FastAPI — not a PIL-re-encoded version.
-    # This guarantees the prediction matches what FastAPI's own Swagger
-    # UI returns for the same image (no JPEG re-compression round-trip).
-    # For local backends (mock / keras / onnx), keep using the PIL image
-    # we already opened (so quality + reliability checks share the same
-    # pixels).
-    try:
-        from apps.common.services.prediction import _APIBackend, PredictionService as _PS
-        backend = _PS._resolve_backend()
+        from apps.common.services.prediction import _APIBackend
         if isinstance(backend, _APIBackend):
-            # Rewind the uploaded file so FastAPI sees the full bytes.
             uploaded.seek(0)
-            prediction = _PS.predict_uploaded(uploaded)
+            prediction = PredictionService.predict_uploaded(uploaded)
         else:
             prediction = PredictionService.predict_pil(pil_image)
     except InvalidImageError as e:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"Could not process image: {e}",
-        })
+        raise _UploadRejected(f"Could not process image: {e}")
     except ModelNotLoadedError as e:
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": f"Model is not loaded. {e}",
-        })
+        raise _UploadRejected(f"Model is not loaded. {e}")
     except PredictionError:
-        logger.exception("Prediction failed.")
-        return render(request, "predictor/upload.html", {
-            "form": form, "classes": PredictionService.class_metadata(),
-            "error": "Prediction could not be completed. Please try again later.",
-        })
+        logger.exception("Dermoscopic prediction failed.")
+        raise _UploadRejected(
+            "Prediction could not be completed. Please try again later."
+        )
+    return prediction, model_name, model_version
 
-    # Reliability check (run automatically; user can ignore if not interested)
-    try:
-        reliability_report = ReliabilityService.assess_pil(pil_image)
-    except Exception as e:
-        logger.warning("Reliability check failed: %s", e)
-        reliability_report = None
 
-    # Save record — scope by user OR session_key for anonymous visitors
-    session_key = "" if request.user.is_authenticated else _resolve_session_key(request)
-    # ``patient_name`` is accepted only for compatibility with older clients.
-    # New uploads store an image label and leave personal patient details empty.
-    legacy_patient_name = (request.POST.get("patient_name") or "").strip()
-    image_name = (
-        form.cleaned_data["image_name"].strip()
-        or legacy_patient_name
-        or Path(uploaded.name).stem
-        or "skin-image"
-    )[:255]
-    record = PredictionRecord(
-        user=request.user if request.user.is_authenticated else None,
-        session_key=session_key,
-        reference_id=_new_reference_id(),
-        image_name=image_name,
-        patient_name=legacy_patient_name,
-        predicted_class=prediction.predicted_class,
-        predicted_name=prediction.predicted_name,
-        category=prediction.category,
-        confidence=prediction.confidence,
-        probabilities=prediction.probabilities,
-        quality_report=quality_report.as_dict() if quality_report else {},
-        reliability_report=reliability_report.as_dict() if reliability_report else {},
-        wrong_input_report=wrong_report.as_dict(),
-        backend=prediction.backend,
+def _predict_phone(form, uploaded, pil_image):
+    model_name = getattr(
+        settings, "SKINDISNET_MODEL_NAME",
+        "SkinDisNet EfficientNetB0 + Metadata Fusion",
     )
-    _save_pil_image_to_field(record, pil_image, record.image_name)
-    record.save()
+    model_version = getattr(settings, "SKINDISNET_MODEL_VERSION", "")
+    metadata = {
+        "age": form.cleaned_data.get("age"),
+        "sex": form.cleaned_data.get("sex"),
+        "lesion_location": form.cleaned_data.get("lesion_location"),
+    }
+    backend = PhoneImagePredictionService._resolve_backend()
+    try:
+        from apps.common.services.phone_prediction import _PhoneAPIBackend
+        if isinstance(backend, _PhoneAPIBackend):
+            uploaded.seek(0)
+            prediction = PhoneImagePredictionService.predict_uploaded(
+                uploaded, metadata=metadata
+            )
+        else:
+            prediction = PhoneImagePredictionService.predict_pil(
+                pil_image, metadata=metadata
+            )
+    except PhoneInvalidImageError as e:
+        raise _UploadRejected(f"Could not process image: {e}")
+    except PhoneModelNotLoadedError as e:
+        raise _UploadRejected(f"Model is not loaded. {e}")
+    except PhonePredictionError:
+        logger.exception("Phone-image prediction failed.")
+        raise _UploadRejected(
+            "Prediction could not be completed. Please try again later."
+        )
+    return prediction, model_name, model_version
 
-    return redirect("predictor:result", reference_id=record.reference_id)
+
+@require_http_methods(["GET", "POST"])
+def upload_view(request):
+    if request.method == "POST":
+        form = ImageUploadForm(request.POST, request.FILES)
+        if not form.is_valid():
+            error_msg = "Please correct the errors below."
+            if form.errors:
+                try:
+                    first_field = next(iter(form.errors))
+                    error_msg = "; ".join(form.errors[first_field])
+                except Exception:
+                    pass
+            return _reject_upload(request, error_msg)
+
+        image_type = form.cleaned_data["image_type"]
+        uploaded = request.FILES["image"]
+        if uploaded.content_type not in ALLOWED_TYPES:
+            return _reject_upload(
+                request,
+                f"Unsupported file type {uploaded.content_type!r}. Use JPG, PNG, or WEBP.",
+            )
+        if uploaded.size > MAX_BYTES:
+            return _reject_upload(
+                request,
+                f"File too large ({uploaded.size//1024} KB). Maximum is 10 MB.",
+            )
+
+        image_bytes = uploaded.read()
+        uploaded.seek(0)
+
+        try:
+            validate_skin_image(
+                image_bytes,
+                filename=uploaded.name,
+                content_type=uploaded.content_type,
+            )
+        except NonSkinImageError:
+            return _reject_upload(
+                request,
+                "This image was classified as non-skin. Please upload a clear "
+                "photo of a skin lesion to continue.",
+            )
+        except PredictionError:
+            logger.exception("Skin/non-skin validation failed.")
+            return _reject_upload(
+                request,
+                "Image validation could not be completed. Please try again later.",
+            )
+
+        wrong_report, pil_image = WrongInputService.validate_bytes(image_bytes)
+        if not wrong_report.is_valid_image or not pil_image:
+            return _reject_upload(
+                request,
+                wrong_report.warning,
+                details=wrong_report.details,
+                suggestions=wrong_report.suggestions,
+            )
+
+        try:
+            quality_report = ImageQualityService.assess_pil(pil_image)
+        except Exception as e:
+            logger.warning("Quality check failed: %s", e)
+            quality_report = None
+
+        try:
+            if image_type == IMAGE_TYPE_PHONE:
+                prediction, model_name, model_version = _predict_phone(form, uploaded, pil_image)
+            else:
+                prediction, model_name, model_version = _predict_dermoscopic(uploaded, pil_image)
+        except _UploadRejected as exc:
+            return _reject_upload(request, exc.message)
+
+        reliability_report = None
+        if image_type != IMAGE_TYPE_PHONE:
+            try:
+                reliability_report = ReliabilityService.assess_pil(pil_image)
+            except Exception as e:
+                logger.warning("Reliability check failed: %s", e)
+                reliability_report = None
+
+        session_key = "" if request.user.is_authenticated else _resolve_session_key(request)
+        legacy_patient_name = (request.POST.get("patient_name") or "").strip()
+        image_name = (
+            form.cleaned_data["image_name"].strip()
+            or legacy_patient_name
+            or Path(uploaded.name).stem
+            or "skin-image"
+        )[:255]
+
+        record = PredictionRecord(
+            user=request.user if request.user.is_authenticated else None,
+            session_key=session_key,
+            reference_id=_new_reference_id(),
+            image_name=image_name,
+            patient_name=legacy_patient_name,
+            image_type=image_type,
+            model_name=model_name,
+            model_version=model_version,
+            predicted_class=prediction.predicted_class,
+            predicted_name=prediction.predicted_name,
+            category=getattr(prediction, "category", "unknown"),
+            confidence=prediction.confidence,
+            probabilities=prediction.probabilities,
+            quality_report=quality_report.as_dict() if quality_report else {},
+            reliability_report=reliability_report.as_dict() if reliability_report else {},
+            wrong_input_report=wrong_report.as_dict(),
+            backend=prediction.backend,
+        )
+        if image_type == IMAGE_TYPE_PHONE:
+            if getattr(settings, "PHONE_MODEL_USES_AGE", True):
+                record.patient_age = form.cleaned_data.get("age")
+            if getattr(settings, "PHONE_MODEL_USES_SEX", True):
+                record.patient_sex = form.cleaned_data.get("sex") or ""
+            if getattr(settings, "PHONE_MODEL_USES_LOCATION", True):
+                record.lesion_location = form.cleaned_data.get("lesion_location") or ""
+        _save_pil_image_to_field(record, pil_image, record.image_name)
+        record.save()
+
+        return redirect("predictor:result", reference_id=record.reference_id)
+
+    return render(request, "predictor/upload.html", _upload_context())
+
+
+def _class_metadata_for(record: PredictionRecord) -> list:
+    if record.image_type == IMAGE_TYPE_PHONE:
+        return PhoneImagePredictionService.class_metadata()
+    return PredictionService.class_metadata()
+
+
+def _image_type_label(record: PredictionRecord) -> str:
+    return "Phone Image" if record.image_type == IMAGE_TYPE_PHONE else "Dermoscopic"
 
 
 def result_view(request, reference_id: str):
-    """Display a saved prediction record with all attached reports."""
     record = get_object_or_404(PredictionRecord, reference_id=reference_id)
-    # Privacy: anonymous session-scoped records are visible only from the
-    # same session; user-linked records require the owner. Legacy records
-    # (session_key='' AND user IS NULL) remain link-only.
     if (
         record.user is not None
         and record.user != request.user
@@ -258,21 +309,15 @@ def result_view(request, reference_id: str):
         and record.session_key
         and not request.user.has_perm("predictor.view_medical_priority_queue")
     ):
-        # anonymous + session-scoped → require same session
         if _resolve_session_key(request) != record.session_key:
             return HttpResponseForbidden("This prediction record belongs to a different session.")
 
-    # Hydrate the saved JSON dicts into attribute-access objects so the
-    # template can use the same attribute syntax as live objects. This
-    # replaces the fragile per-page _QualityDTO class.
     quality = hydrate(record.quality_report) if record.quality_report else None
     reliability = hydrate(record.reliability_report) if record.reliability_report else None
     wrong_input = hydrate(record.wrong_input_report) if record.wrong_input_report else None
 
-    class_names = {
-        item["code"]: item["name"]
-        for item in PredictionService.class_metadata()
-    }
+    class_meta = _class_metadata_for(record)
+    class_names = {item["code"]: item["name"] for item in class_meta}
     probability_rows = []
     for code, raw_probability in (record.probabilities or {}).items():
         try:
@@ -315,7 +360,6 @@ def result_view(request, reference_id: str):
                 )
         except (TypeError, ValueError):
             pass
-
         try:
             agreement = float(getattr(reliability, "agreement_pct", None))
             if math.isfinite(agreement):
@@ -328,17 +372,17 @@ def result_view(request, reference_id: str):
         "quality": quality,
         "reliability": reliability,
         "wrong_input": wrong_input,
-        "classes": PredictionService.class_metadata(),
+        "classes": class_meta,
+        "image_type_label": _image_type_label(record),
+        "is_phone": record.image_type == IMAGE_TYPE_PHONE,
         "probability_rows": probability_rows,
-        # JSON-encoded chart payload for Chart.js consumption on the client.
-        # Each row contains {code, name, probability (0..1), percent (0..100)}.
         "probability_chart_json": json.dumps([
             {
                 "code": row["code"],
                 "name": row["name"],
                 "percent": round(row["percent"], 2),
                 "category": next(
-                    (c["category"] for c in PredictionService.class_metadata()
+                    (c.get("category", "unknown") for c in class_meta
                      if c["code"] == row["code"]),
                     "unknown",
                 ),
@@ -353,17 +397,6 @@ def result_view(request, reference_id: str):
 
 
 def history_view(request):
-    """Show the visitor's prediction history with search, class filter, date
-    filter, and JSON export support.
-
-    Query params:
-      - q:        full-text search across image_name + predicted_class/name
-      - class:    filter by predicted_class (e.g. ?class=mel)
-      - since:    ISO date (YYYY-MM-DD) — only show records on/after that date
-      - until:    ISO date (YYYY-MM-DD) — only show records on/before that date
-      - export:   if 'json', return a JSON download of all matching records
-                  (capped at 200 records) instead of the HTML page.
-    """
     qs = _scope_queryset(request).order_by("-created_at")
 
     q = (request.GET.get("q") or "").strip()
@@ -385,12 +418,13 @@ def history_view(request):
     if until:
         qs = qs.filter(created_at__date__lte=until)
 
-    # Export branch — return JSON download for the matched set (capped)
     if request.GET.get("export") == "json":
         export_qs = qs[:200]
         payload = [
             {
                 "reference_id": r.reference_id,
+                "image_type": r.image_type,
+                "model_name": r.model_name,
                 "predicted_class": r.predicted_class,
                 "predicted_name": r.predicted_name,
                 "category": r.category,
@@ -411,13 +445,11 @@ def history_view(request):
     records = qs[:50]
     for record in records:
         record.confidence_percent = confidence_to_fraction(record.confidence) * 100
-    # Class filter dropdown options
     class_filter_options = PredictionService.class_metadata()
 
     return render(request, "predictor/history.html", {
         "records": records,
         "class_filter_options": class_filter_options,
-        # Replicate current filter state for the form's sticky values
         "filters": {
             "q": q,
             "class": selected_class,
@@ -429,7 +461,6 @@ def history_view(request):
 
 
 def pdf_report_view(request, reference_id: str):
-    """Generate and return a PDF report for a saved prediction."""
     record = get_object_or_404(PredictionRecord, reference_id=reference_id)
     if (
         record.user is not None
@@ -454,15 +485,10 @@ def pdf_report_view(request, reference_id: str):
         probabilities=record.probabilities,
         backend=record.backend,
     )
-    # Hydrate saved JSON dicts into attribute-access objects for the PDF service.
     quality = hydrate(record.quality_report) if record.quality_report else None
     reliability = hydrate(record.reliability_report) if record.reliability_report else None
     wrong_input = hydrate(record.wrong_input_report) if record.wrong_input_report else None
 
-    # Determine the user's language preference for the PDF.
-    # The derma_lang cookie is set client-side by main.js when the user
-    # clicks the language toggle. Fall back to the request's Accept-Language
-    # header, then to English.
     language = request.COOKIES.get("derma_lang", "").strip().lower()
     if language not in ("en", "bn"):
         accept = (request.META.get("HTTP_ACCEPT_LANGUAGE") or "").lower()
@@ -475,6 +501,8 @@ def pdf_report_view(request, reference_id: str):
         reliability=reliability,
         wrong_input=wrong_input,
         language=language,
+        image_type=record.image_type,
+        model_name=record.model_name,
     )
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="dermacheckerbd_{record.reference_id}.pdf"'
@@ -483,16 +511,12 @@ def pdf_report_view(request, reference_id: str):
 
 @require_http_methods(["GET", "POST"])
 def delete_record_view(request, reference_id: str):
-    """Delete a saved prediction record (owner or same-session only)."""
     record = get_object_or_404(PredictionRecord, reference_id=reference_id)
-    # Authorization
     if record.user is not None and record.user != request.user:
         return HttpResponseForbidden("You can only delete your own records.")
     if record.user is None and record.session_key:
         if _resolve_session_key(request) != record.session_key:
             return HttpResponseForbidden("You can only delete your own records.")
-    # Legacy records (no user, no session_key) are link-only and cannot
-    # be deleted via this view — preserve original behaviour.
     if record.user is None and not record.session_key:
         return HttpResponseForbidden("This anonymous record cannot be deleted.")
 
@@ -506,7 +530,6 @@ def delete_record_view(request, reference_id: str):
 
 @require_http_methods(["GET", "POST"])
 def clear_history_view(request):
-    """Confirm and delete all prediction records visible to this visitor."""
     records = _scope_queryset(request)
     if request.method == "POST":
         for record in records.only("id", "image").iterator():

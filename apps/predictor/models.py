@@ -55,6 +55,22 @@ class PredictionRecord(models.Model):
 
     backend = models.CharField(max_length=32, default="mock")
 
+    IMAGE_TYPE_CHOICES = [
+        ("dermoscopic", "Dermoscopic (HAM10000)"),
+        ("phone", "Phone Image (SkinDisNet)"),
+    ]
+    image_type = models.CharField(
+        max_length=16,
+        choices=IMAGE_TYPE_CHOICES,
+        db_index=True,
+        default="dermoscopic",
+    )
+    model_name = models.CharField(max_length=128, blank=True, default="")
+    model_version = models.CharField(max_length=64, blank=True, default="")
+    patient_age = models.PositiveIntegerField(null=True, blank=True)
+    patient_sex = models.CharField(max_length=16, blank=True, default="")
+    lesion_location = models.CharField(max_length=64, blank=True, default="")
+
     REVIEW_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("appointment_planned", "Appointment Planned"),

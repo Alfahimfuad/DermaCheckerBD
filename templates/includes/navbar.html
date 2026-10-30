@@ -35,8 +35,10 @@
             <li><a class="dropdown-item" href="{% url 'predictor:history' %}"><i data-lucide="history" class="me-2"></i><span data-i18n="feature.history">Prediction History</span></a></li>
             <li><a class="dropdown-item" href="{% url 'education:index' %}"><i data-lucide="book-open" class="me-2"></i><span data-i18n="feature.library">Skin Health Library</span></a></li>
             <li><a class="dropdown-item" href="{% url 'questionnaire:form' %}"><i data-lucide="alert-triangle" class="me-2"></i><span data-i18n="feature.warning_signs">Warning Signs Checker</span></a></li>
-            <li><a class="dropdown-item" href="{% url 'doctors:finder' %}"><i data-lucide="map-pin" class="me-2"></i><span data-i18n="feature.find_doctors">Find Nearby Doctors</span></a></li>
+            <li><a class="dropdown-item" href="{% url 'doctors:finder' %}"><i data-lucide="map-pin" class="me-2"></i><span data-i18n="feature.find_doctors">Find Nearby Doctors</span></li>
+            {% if perms.predictor.view_medical_priority_queue %}
             <li><a class="dropdown-item" href="{% url 'doctors:panel' %}"><i data-lucide="clipboard-list" class="me-2"></i><span data-i18n="feature.doctor_panel">Doctor Panel</span></a></li>
+            {% endif %}
             {% if similar_cases_enabled %}
             <li><a class="dropdown-item" href="{% url 'similar_cases:explorer' %}"><i data-lucide="grid-2x2" class="me-2"></i><span data-i18n="feature.similar_cases">Similar Case Explorer</span></a></li>
             {% endif %}

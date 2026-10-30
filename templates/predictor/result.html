@@ -13,7 +13,7 @@
   <div class="container-xl report-container">
     <header class="report-heading">
       <div>
-        <p class="report-eyebrow"><span data-i18n="result.eyebrow">Saved analysis</span> <span aria-hidden="true">·</span> <span data-i18n="result.single_image">Single image</span></p>
+        <p class="report-eyebrow"><span data-i18n="result.eyebrow">Saved analysis</span> <span aria-hidden="true">·</span> <span data-i18n="result.single_image">Single image</span> <span aria-hidden="true">·</span> <span data-i18n="result.image_type_{{ record.image_type }}">{{ image_type_label }}</span></p>
         <h1 data-i18n="result.title">Prediction result</h1>
         <p class="report-meta">
           <span data-i18n="result.reference">Reference</span> <strong>{{ record.reference_id }}</strong>
@@ -39,6 +39,20 @@
       </div>
     </header>
 
+    <div class="report-model-banner" role="status">
+      <span class="report-model-label" data-i18n="result.model_label">Model:</span>
+      <span class="report-model-chip {% if is_phone %}is-phone{% endif %}">
+        <i data-lucide="{% if is_phone %}smartphone{% else %}microscope{% endif %}" aria-hidden="true" style="width:14px;height:14px;"></i>
+        {{ record.model_name|default:record.backend }}
+      </span>
+      <span class="report-model-label" data-i18n="result.image_type_label">Image type:</span>
+      <span class="report-model-chip {% if is_phone %}is-phone{% endif %}" data-i18n="result.image_type_{{ record.image_type }}">{{ image_type_label }}</span>
+      {% if record.model_version %}
+        <span class="report-model-label" data-i18n="result.model_version_label">Version:</span>
+        <span class="report-model-chip">{{ record.model_version }}</span>
+      {% endif %}
+    </div>
+
     <div class="report-hero-grid">
       <section class="report-card report-image-card" aria-labelledby="original-image-title">
         <div class="report-card-heading">
@@ -59,6 +73,7 @@
       </section>
 
       <section class="report-card report-summary-card" aria-labelledby="prediction-title">
+        {% if not is_phone %}
         <div class="report-category category-{{ record.category|slugify }}">
           {% if record.category == "malignant" %}
             <i data-lucide="alert-octagon" aria-hidden="true"></i>
@@ -69,6 +84,12 @@
           {% endif %}
           <span data-i18n="result.model_category">Model category:</span> <span data-i18n-category="{{ record.category }}">{{ record.category|title }}</span>
         </div>
+        {% else %}
+        <div class="report-category category-condition">
+          <i data-lucide="stethoscope" aria-hidden="true"></i>
+          <span data-i18n="result.condition_label">Skin condition:</span> <span data-i18n="class-name.{{ record.predicted_class }}">{{ record.predicted_name }}</span>
+        </div>
+        {% endif %}
 
         <div class="report-result-line">
           <div>
@@ -86,14 +107,14 @@
           <span data-i18n="result.confidence_note">This is the model’s maximum softmax output, not a probability that the result is correct.</span>
         </p>
         {% if confidence_percent < 50 %}
-          <div class="medical-disclaimer confidence-warning mt-3" role="alert">
+          <div class="medical-disclaimer confidence-warning report-low-confidence-warning mt-3" role="alert">
             <strong><span data-i18n="result.low_confidence_title">Low model confidence</span> ({{ confidence_percent|floatformat:1 }}%).</strong>
             <p class="mb-0 mt-1" data-i18n="result.low_confidence_recommendation">
               This experimental prediction is not a confirmed diagnosis. Please consult a qualified dermatologist; your doctor may recommend dermoscopy or other tests to evaluate the lesion.
             </p>
           </div>
         {% endif %}
-        {% if record.category == "malignant" or record.category == "pre malignant" %}
+        {% if not is_phone and record.category == "malignant" or record.category == "pre malignant" %}
           <div class="report-result-warning mt-3" role="alert">
             <i data-lucide="alert-triangle" aria-hidden="true"></i>
             <div>
@@ -105,7 +126,7 @@
 
         <div class="report-probabilities">
           <div class="report-section-heading">
-            <h3 data-i18n="result.seven_class_probs">Seven-class probabilities</h3>
+            <h3 data-i18n="{% if is_phone %}result.phone_class_probs{% else %}result.seven_class_probs{% endif %}">{% if is_phone %}Six-class probabilities{% else %}Seven-class probabilities{% endif %}</h3>
             <span data-i18n="result.model_output">Model output</span>
           </div>
           {% if probability_rows %}
@@ -130,12 +151,9 @@
                 </div>
               {% endfor %}
             </div>
-            <!-- Interactive Chart.js doughnut visualisation of the same
-                 probabilities. The bars above remain as the accessible
-                 fallback (works without JS, screen-reader friendly). -->
             <div class="report-chart-wrap mt-3">
           <canvas id="probabilityChart" height="220"
-                       aria-label="Interactive doughnut chart of seven-class probabilities" data-i18n-aria="chart.doughnut_aria"
+                       aria-label="Interactive doughnut chart of {% if is_phone %}six{% else %}seven{% endif %}-class probabilities" data-i18n-aria="chart.doughnut_aria"
                       role="img"></canvas>
             </div>
           {% else %}
@@ -283,9 +301,11 @@
       <a href="{% url 'predictor:upload' %}" class="report-button report-button-primary">
         <i data-lucide="refresh-cw" aria-hidden="true"></i> <span data-i18n="result.analyze_another">Analyze another image</span>
       </a>
+      {% if not is_phone %}
       <a href="{% url 'education:detail' record.predicted_class %}" class="report-button">
         <i data-lucide="book-open" aria-hidden="true"></i> <span data-i18n="result.disease_details">Disease details &amp; care guide</span>
       </a>
+      {% endif %}
       <a href="{% url 'reliability:check' %}?reference_id={{ record.reference_id|urlencode }}" class="report-button">
         <i data-lucide="activity" aria-hidden="true"></i> <span data-i18n="result.reliability_check">Reliability check</span>
       </a>

@@ -225,24 +225,58 @@ in there. Do not commit the password to the repository.
 
 ## Prediction model
 
-The default model is `attached_assets/resnet50_finetuned_1791994962604.keras`,
-a fine-tuned ResNet50 for the seven HAM10000 diagnosis classes. Keep the model
-at that path or set `ML_MODEL_PATH` to its location. It is about 201 MB and
-should not be committed to Git.
+DermaCheckerBD supports **two prediction pipelines**, selected on the upload
+page via two selectable cards. Each upload is gated by the Skin/Non-Skin
+validation API before reaching a classifier. The browser NEVER calls the ML
+APIs directly — all inference happens server-side through Django.
 
-Inference converts each upload to RGB, resizes it to 224×224 with bilinear
-interpolation, converts pixels back to `[0, 255]`, and applies
-`tf.keras.applications.resnet50.preprocess_input` before calling the model.
-Output order is `akiec,bcc,bkl,df,mel,nv,vasc`. The `.keras` model is loaded
-once per application process on the first prediction, then reused.
+### Pipeline A — Dermoscopic Image (HAM10000)
 
-The model file was provided with reported test metrics of 73.49% accuracy,
-61.67% macro F1, and 95.77% macro AUC; those figures have not been independently
-verified and do not establish clinical validity. This is an educational/research
-prototype, not a medical diagnostic tool. Consult a qualified dermatologist or
-healthcare professional for proper evaluation.
+- **Model:** fine-tuned ResNet50 (`HAM10000 ResNet50`).
+- **Input:** dermoscopic image, 224×224, RGB.
+- **Classes (7):** `akiec, bcc, bkl, df, mel, nv, vasc` (order matches the
+  trained model's output).
+- **Flow:** upload → Skin/Non-Skin API → HAM10000 API → result.
+- **Metadata:** none required.
 
-Set `ML_MODEL_BACKEND=mock` to use deterministic demo predictions instead.
+The default Keras model lives at `attached_assets/resnet50_finetuned_1791994962604.keras`
+(set `ML_MODEL_PATH` to override). Inference converts each upload to RGB,
+resizes to 224×224 bilinear, restores `[0, 255]`, and applies
+`tf.keras.applications.resnet50.preprocess_input`. Output order is
+`akiec,bcc,bkl,df,mel,nv,vasc`. The `.keras` model is loaded once per process.
+
+Reported test metrics (not independently verified): 73.49% accuracy, 61.67%
+macro F1, 95.77% macro AUC. These do **not** establish clinical validity.
+
+### Pipeline B — Phone Image (SkinDisNet)
+
+- **Model:** EfficientNetB0 + metadata fusion (`SkinDisNet EfficientNetB0 + Metadata Fusion`).
+- **Input:** phone photograph, 224×224, RGB + patient metadata (age, sex, lesion location).
+- **Classes (6):** `atopic_dermatitis, contact_dermatitis, eczema, scabies,
+  seborrheic_dermatitis, tinea_corporis` (order matches the trained model).
+- **Flow:** upload + metadata → Skin/Non-Skin API → SkinDisNet API → result.
+- **Metadata:** Age, Sex, and Lesion Location are required (toggleable via
+  `PHONE_MODEL_USES_*` flags). The patient identifier is NEVER sent to the model.
+
+Set `ML_PHONE_MODEL_BACKEND=mock` for deterministic demo predictions.
+
+### Three ML APIs (server-side only)
+
+| # | Service | Env var | Endpoint | Purpose |
+|---|---------|---------|----------|---------|
+| 1 | Skin/Non-Skin gate | `AI_SKIN_API_URL` | `POST {url}{AI_SKIN_API_PATH}` | Blocks non-skin images before any classifier runs |
+| 2 | HAM10000 (dermoscopic) | `AI_API_URL` | `POST {url}/predict` | 7-class dermoscopic prediction |
+| 3 | SkinDisNet (phone) | `SKINDISNET_API_URL` | `POST {url}/predict` | 6-class phone-image prediction + metadata fusion |
+
+**Critical routing rule:** a single upload never reaches both classifiers.
+Dermoscopic → Skin gate → HAM10000 only. Phone → Skin gate → SkinDisNet only.
+
+Set `ML_MODEL_BACKEND=mock` (dermoscopic) and/or `ML_PHONE_MODEL_BACKEND=mock`
+(phone) for deterministic demo predictions without loading TensorFlow.
+
+This is an educational/research prototype, not a medical diagnostic tool.
+Consult a qualified dermatologist or healthcare professional for proper
+evaluation.
 
 ---
 

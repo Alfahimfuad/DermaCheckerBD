@@ -92,7 +92,14 @@
                      style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border);">
               {% endif %}
               <div>
-                <div class="fw-semibold">{{ r.image_name|default:r.patient_name|default:"Patient image" }}</div>
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                  <span class="fw-semibold">{{ r.image_name|default:r.patient_name|default:"Patient image" }}</span>
+                  {% if r.image_type == 'phone' %}
+                    <span class="model-type-chip is-phone"><i data-lucide="smartphone" style="width:11px;height:11px;"></i> SkinDisNet</span>
+                  {% else %}
+                    <span class="model-type-chip"><i data-lucide="microscope" style="width:11px;height:11px;"></i> HAM10000</span>
+                  {% endif %}
+                </div>
                 <div class="fw-semibold">
                   <span class="badge class-code-badge me-1 {% if r.category == 'malignant' %}class-code-badge--malignant{% elif r.category == 'pre malignant' %}class-code-badge--premalignant{% elif r.category == 'benign' %}class-code-badge--benign{% endif %}">{{ r.predicted_class|upper }}</span>
                   <span data-i18n="class-name.{{ r.predicted_class }}">{{ r.predicted_name }}</span>

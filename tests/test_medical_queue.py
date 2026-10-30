@@ -68,6 +68,7 @@ class PatientNamedUploadTests(TestCase):
         )
         response = self.client.post("/predict/", {
             "image": image,
+            "image_type": "dermoscopic",
             "patient_name": "Nadia Rahman",
         })
 
@@ -86,6 +87,7 @@ class PatientNamedUploadTests(TestCase):
         )
         response = self.client.post("/predict/", {
             "image": image,
+            "image_type": "dermoscopic",
             "image_name": "Left arm spot",
         })
 

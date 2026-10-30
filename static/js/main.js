@@ -504,3 +504,26 @@ window.postJson = async function (url, data) {
   }
   return resp.json();
 };
+
+(function () {
+  function highlightActiveNav() {
+    var path = window.location.pathname;
+    var links = document.querySelectorAll('.app-nav-link, .app-dropdown .dropdown-item');
+    links.forEach(function (link) {
+      var href = link.getAttribute('href');
+      if (!href || href === '#' || href.indexOf('javascript:') === 0) return;
+      if (href === path) {
+        link.classList.add('active');
+      } else if (href !== '/' && path.indexOf(href) === 0) {
+        if (link.classList.contains('app-nav-link') && !link.classList.contains('dropdown-toggle')) {
+          link.classList.add('active');
+        }
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', highlightActiveNav);
+  } else {
+    highlightActiveNav();
+  }
+})();

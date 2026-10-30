@@ -174,13 +174,16 @@ class HomeCancerFaqTests(TestCase):
 
 
 class UploadPagePrivacyTests(TestCase):
-    def test_upload_page_does_not_name_the_training_dataset(self):
+    def test_upload_page_does_not_expose_internal_secrets(self):
         response = self.client.get("/predict/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Supported lesion categories")
-        self.assertContains(response, "Across 7 supported categories")
-        self.assertNotContains(response, "HAM10000")
+        self.assertContains(response, "Dermoscopic categories")
+        self.assertContains(response, "Phone-image categories")
+        self.assertContains(response, "HAM10000 ResNet50")
+        self.assertContains(response, "Select Your Image Type")
+        self.assertNotContains(response, "AI_API_TOKEN")
+        self.assertNotContains(response, "SKINDISNET_API_TOKEN")
 
 
 class AuthTests(TestCase):
@@ -301,6 +304,7 @@ class UploadAndPredictionTests(TestCase):
         upload = SimpleUploadedFile("test.jpg", img_bytes, content_type="image/jpeg")
         r = self.c.post("/predict/", {
             "image": upload, "patient_name": "Rafi Ahmed",
+            "image_type": "dermoscopic",
             "csrfmiddlewaretoken": csrf,
         })
         self.assertEqual(r.status_code, 302)
@@ -328,7 +332,7 @@ class UploadAndPredictionTests(TestCase):
         ), patch(
             "apps.predictor.views.PredictionService.predict_pil"
         ) as lesion_predict:
-            response = self.c.post("/predict/", {"image": upload})
+            response = self.c.post("/predict/", {"image": upload, "image_type": "dermoscopic"})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "classified as non-skin")
@@ -343,6 +347,7 @@ class UploadAndPredictionTests(TestCase):
         # Don't actually upload non-image — the form validation should catch it
         r = self.c.post("/predict/", {
             "image": upload, "patient_name": "Rafi Ahmed",
+            "image_type": "dermoscopic",
             "csrfmiddlewaretoken": csrf,
         })
         # The view returns 200 with an error (renders upload.html with error)
@@ -360,6 +365,7 @@ class UploadAndPredictionTests(TestCase):
         ):
             response = self.c.post("/predict/", {
                 "image": upload, "patient_name": "Rafi Ahmed",
+                "image_type": "dermoscopic",
             })
 
         self.assertEqual(response.status_code, 200)
@@ -489,6 +495,7 @@ class PhotoGuidePredictionHandoffTests(TestCase):
 
         prediction_response = self.client.post("/predict/", {
             "image_name": quality_response.context["image_name"],
+            "image_type": "dermoscopic",
             "image": SimpleUploadedFile(
                 quality_response.context["uploaded_name"],
                 original_bytes,

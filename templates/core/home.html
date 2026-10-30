@@ -156,9 +156,17 @@
     <div class="section-head">
       <span class="eyebrow"><i data-lucide="layout-grid" style="width:14px;height:14px;"></i> <span data-i18n="home.features.eyebrow">Features</span></span>
       <h2 class="title" data-i18n="home.features.title">A complete, practical toolkit</h2>
-      <p class="subtitle" data-i18n="home.features.subtitle">Six concrete features that go beyond basic image upload and prediction.</p>
+      <p class="subtitle" data-i18n="home.features.subtitle">A full research-grade toolkit: dual-pipeline prediction, quality checks, stability analysis, follow-up tracking, and more.</p>
     </div>
     <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="app-card-feature">
+          <div class="feature-icon"><i data-lucide="scan-search"></i></div>
+          <h3 class="feature-title" data-i18n="home.feature.predict.title">Dual-Pipeline Prediction</h3>
+          <p class="feature-desc" data-i18n="home.feature.predict.desc">Choose a dermoscopic (7-class) or phone (6-class) image. Each is gated by a skin/non-skin check before classification runs.</p>
+          <a class="feature-link" href="{% url 'predictor:upload' %}"><span data-i18n="home.feature.predict.link">Start a scan</span> <i data-lucide="arrow-right" style="width:14px;height:14px;"></i></a>
+        </div>
+      </div>
       <div class="col-md-6 col-lg-4">
         <div class="app-card-feature">
           <div class="feature-icon"><i data-lucide="image"></i></div>
@@ -204,6 +212,22 @@
           <h3 class="feature-title" data-i18n="home.feature.doctor_panel.title">Doctor Panel</h3>
           <p class="feature-desc" data-i18n="home.feature.doctor_panel.desc">Authorized doctors and administrators can review follow-up cases, update case status, and generate serial reports.</p>
           <a class="feature-link" href="{% url 'doctors:panel' %}"><span data-i18n="home.feature.doctor_panel.link">Open Doctor Panel</span> <i data-lucide="arrow-right" style="width:14px;height:14px;"></i></a>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="app-card-feature">
+          <div class="feature-icon"><i data-lucide="book-open"></i></div>
+          <h3 class="feature-title" data-i18n="home.feature.library.title">Skin Health Library</h3>
+          <p class="feature-desc" data-i18n="home.feature.library.desc">Browse plain-language guides to every condition the model can flag, with care next steps and risk context.</p>
+          <a class="feature-link" href="{% url 'education:index' %}"><span data-i18n="home.feature.library.link">Browse library</span> <i data-lucide="arrow-right" style="width:14px;height:14px;"></i></a>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="app-card-feature">
+          <div class="feature-icon"><i data-lucide="alert-triangle"></i></div>
+          <h3 class="feature-title" data-i18n="home.feature.warning.title">Warning Signs Checker</h3>
+          <p class="feature-desc" data-i18n="home.feature.warning.desc">A guided questionnaire that surfaces concerning lesion changes. Educational — not a diagnosis.</p>
+          <a class="feature-link" href="{% url 'questionnaire:form' %}"><span data-i18n="home.feature.warning.link">Check warning signs</span> <i data-lucide="arrow-right" style="width:14px;height:14px;"></i></a>
         </div>
       </div>
     </div>

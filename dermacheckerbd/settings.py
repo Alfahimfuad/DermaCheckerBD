@@ -306,17 +306,12 @@ if not DEBUG and ML_MODEL_BACKEND.lower() == "api":
         raise ImproperlyConfigured(
             "AI_SKIN_API_URL must be set when ML_MODEL_BACKEND=api in production."
         )
-# Optional bearer token if your FastAPI service requires authentication.
 AI_API_TOKEN = os.environ.get("AI_API_TOKEN", "").strip()
-# The skin-validation API can use a distinct token; otherwise share the
-# seven-class API token for backward compatibility with existing deployments.
 AI_SKIN_API_TOKEN = os.environ.get(
     "AI_SKIN_API_TOKEN", AI_API_TOKEN
 ).strip()
-# Per-request timeout (seconds) for each ML API call.
 AI_API_TIMEOUT = int(os.environ.get("AI_API_TIMEOUT", "120"))
 
-# HAM10000 class -> full medical name mapping (used for display)
 HAM10000_CLASS_NAMES = {
     "akiec": "Actinic Keratoses / Bowen's Disease",
     "bcc": "Basal Cell Carcinoma",
@@ -335,6 +330,77 @@ HAM10000_CLASS_CATEGORY = {
     "nv": "benign",
     "vasc": "benign",
 }
+HAM10000_MODEL_NAME = os.environ.get(
+    "HAM10000_MODEL_NAME", "HAM10000 ResNet50"
+).strip() or "HAM10000 ResNet50"
+HAM10000_MODEL_VERSION = os.environ.get(
+    "HAM10000_MODEL_VERSION", ""
+).strip()
+
+ML_PHONE_MODEL_BACKEND = os.environ.get("ML_PHONE_MODEL_BACKEND", "keras")
+ML_PHONE_MODEL_PATH = os.environ.get("ML_PHONE_MODEL_PATH", "").strip()
+ML_PHONE_MODEL_INPUT_SIZE = int(os.environ.get("ML_PHONE_MODEL_INPUT_SIZE", "224"))
+ML_PHONE_MODEL_CLASSES = os.environ.get(
+    "ML_PHONE_MODEL_CLASSES",
+    "atopic_dermatitis,contact_dermatitis,eczema,scabies,seborrheic_dermatitis,tinea_corporis",
+).split(",")
+ML_PHONE_MODEL_RESAMPLE = os.environ.get(
+    "ML_PHONE_MODEL_RESAMPLE", ML_MODEL_RESAMPLE
+)
+
+SKINDISNET_API_URL = os.environ.get("SKINDISNET_API_URL", "").strip()
+SKINDISNET_API_TOKEN = os.environ.get("SKINDISNET_API_TOKEN", "").strip()
+SKINDISNET_API_FILE_FIELD = os.environ.get(
+    "SKINDISNET_API_FILE_FIELD", "file"
+).strip() or "file"
+SKINDISNET_API_TIMEOUT = int(os.environ.get("SKINDISNET_API_TIMEOUT", "120"))
+
+SKINDISNET_CLASS_NAMES = {
+    "atopic_dermatitis": "Atopic Dermatitis",
+    "contact_dermatitis": "Contact Dermatitis",
+    "eczema": "Eczema",
+    "scabies": "Scabies",
+    "seborrheic_dermatitis": "Seborrheic Dermatitis",
+    "tinea_corporis": "Tinea Corporis",
+}
+SKINDISNET_MODEL_NAME = os.environ.get(
+    "SKINDISNET_MODEL_NAME",
+    "SkinDisNet EfficientNetB0 + Metadata Fusion",
+).strip() or "SkinDisNet EfficientNetB0 + Metadata Fusion"
+SKINDISNET_MODEL_VERSION = os.environ.get(
+    "SKINDISNET_MODEL_VERSION", ""
+).strip()
+
+PHONE_MODEL_USES_AGE = os.environ.get(
+    "PHONE_MODEL_USES_AGE", "True"
+).lower() in ("1", "true", "yes")
+PHONE_MODEL_USES_SEX = os.environ.get(
+    "PHONE_MODEL_USES_SEX", "True"
+).lower() in ("1", "true", "yes")
+PHONE_MODEL_USES_LOCATION = os.environ.get(
+    "PHONE_MODEL_USES_LOCATION", "True"
+).lower() in ("1", "true", "yes")
+PHONE_LESION_LOCATIONS = [
+    loc.strip()
+    for loc in os.environ.get(
+        "PHONE_LESION_LOCATIONS",
+        "scalp,face,neck,chest,back,arm,hand,leg,foot,abdomen,groin,other",
+    ).split(",")
+    if loc.strip()
+]
+PHONE_SEX_CHOICES = [
+    s.strip()
+    for s in os.environ.get(
+        "PHONE_SEX_CHOICES", "male,female,other"
+    ).split(",")
+    if s.strip()
+]
+
+if not DEBUG and ML_PHONE_MODEL_BACKEND.lower() == "api":
+    if not SKINDISNET_API_URL:
+        raise ImproperlyConfigured(
+            "SKINDISNET_API_URL must be set when ML_PHONE_MODEL_BACKEND=api in production."
+        )
 
 # Gemini chatbot
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

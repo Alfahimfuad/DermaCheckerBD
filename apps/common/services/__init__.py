@@ -16,3 +16,12 @@ from .gemini import GeminiService, GeminiError  # noqa: F401
 from .pdf_report import PdfReportService  # noqa: F401
 from .wrong_input import WrongInputService, WrongInputReport  # noqa: F401
 from .similar_cases import SimilarCasesService  # noqa: F401
+from .phone_prediction import (  # noqa: F401
+    PhoneImagePredictionService,
+    PhonePredictionResult,
+    PhonePredictionError,
+    PhoneModelNotLoadedError,
+    PhoneInvalidImageError,
+    PHONE_CLASS_ORDER,
+    PHONE_CLASS_NAMES,
+)

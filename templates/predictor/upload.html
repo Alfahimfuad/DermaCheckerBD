@@ -3,12 +3,17 @@
 
 {% block title %}Upload Skin Image · DermaCheckerBD{% endblock %}
 
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/predictor/predictor.css' %}">
+{% endblock %}
+
 {% block content %}
 <section class="section">
   <div class="container-xl" style="max-width: 56rem;">
     <span class="app-badge mb-3"><i data-lucide="scan-search" style="width:14px;height:14px;"></i> <span data-i18n="predict.eyebrow">Skin image prediction</span></span>
     <h1 class="mb-2" data-i18n="predict.title">Upload a skin lesion image</h1>
-    <p class="text-muted" data-i18n="predict.subtitle">For better predictions, use dermoscopic images. This system is for research purposes only and is not a medical diagnostic tool. Always consult a qualified dermatologist.</p>
+    <p class="text-muted" data-i18n="predict.subtitle">Select your image type, then upload. This system is for research purposes only and is not a medical diagnostic tool. Always consult a qualified dermatologist.</p>
     <hr class="my-4">
 
     {% if error %}
@@ -24,11 +29,47 @@
       </div>
     {% endif %}
 
+    <div class="predict-image-type-section mb-4">
+      <h2 class="h6 predict-section-title" data-i18n="predict.select_image_type">Select Your Image Type</h2>
+      <p class="text-muted small mb-3" data-i18n="predict.image_type_hint">Choose the option that matches your image. You must select one before uploading.</p>
+      <div class="predict-type-cards">
+        <label class="predict-type-card" data-type="dermoscopic">
+          <input type="radio" name="image_type_card" value="dermoscopic" class="predict-type-radio">
+          <span class="predict-type-card-inner">
+            <span class="predict-type-icon"><i data-lucide="microscope"></i></span>
+            <span class="predict-type-body">
+              <span class="predict-type-title" data-i18n="predict.type_dermoscopic">Dermoscopic Image</span>
+              <span class="predict-type-desc" data-i18n="predict.type_dermoscopic_desc">For dermoscopic skin lesion images.</span>
+              <span class="predict-type-meta">
+                <span class="predict-type-chip">{{ dermoscopic_model_name }}</span>
+                <span class="predict-type-chip predict-type-chip-count">7-class</span>
+              </span>
+            </span>
+          </span>
+        </label>
+        <label class="predict-type-card" data-type="phone">
+          <input type="radio" name="image_type_card" value="phone" class="predict-type-radio">
+          <span class="predict-type-card-inner">
+            <span class="predict-type-icon"><i data-lucide="smartphone"></i></span>
+            <span class="predict-type-body">
+              <span class="predict-type-title" data-i18n="predict.type_phone">Phone Image</span>
+              <span class="predict-type-desc" data-i18n="predict.type_phone_desc">For regular skin photographs captured using a smartphone or camera.</span>
+              <span class="predict-type-meta">
+                <span class="predict-type-chip">{{ phone_model_name }}</span>
+                <span class="predict-type-chip predict-type-chip-count">6-class</span>
+              </span>
+            </span>
+          </span>
+        </label>
+      </div>
+    </div>
+
     <div class="row g-4">
       <div class="col-lg-7">
         <div class="app-card">
           <form method="post" enctype="multipart/form-data" id="uploadForm">
             {% csrf_token %}
+            {{ form.image_type }}
 
             <div class="upload-area" id="dropZone" aria-label="Image upload area" data-i18n-aria="aria.image_upload_area" tabindex="0" role="group">
               <div data-upload-empty>
@@ -65,6 +106,40 @@
               <div class="form-text" data-i18n="predict.image_name_help">Used to label the saved image in your history.</div>
             </div>
 
+            <div class="predict-phone-metadata mt-3" id="phoneMetadata" hidden>
+              <h3 class="h6 predict-section-title" data-i18n="predict.patient_metadata">Patient metadata</h3>
+              <p class="text-muted small mb-3" data-i18n="predict.metadata_hint">Required for the SkinDisNet phone-image model.</p>
+              <div class="row g-3">
+                {% if phone_uses_age %}
+                <div class="col-sm-4">
+                  <label class="app-form-label" for="id_age" data-i18n="predict.age">Age</label>
+                  {{ form.age }}
+                  {% for error in form.age.errors %}
+                    <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                  {% endfor %}
+                </div>
+                {% else %}{{ form.age.as_hidden }}{% endif %}
+                {% if phone_uses_sex %}
+                <div class="col-sm-4">
+                  <label class="app-form-label" for="id_sex" data-i18n="predict.sex">Sex</label>
+                  {{ form.sex }}
+                  {% for error in form.sex.errors %}
+                    <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                  {% endfor %}
+                </div>
+                {% else %}{{ form.sex.as_hidden }}{% endif %}
+                {% if phone_uses_location %}
+                <div class="col-sm-4">
+                  <label class="app-form-label" for="id_lesion_location" data-i18n="predict.lesion_location">Lesion location</label>
+                  {{ form.lesion_location }}
+                  {% for error in form.lesion_location.errors %}
+                    <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                  {% endfor %}
+                </div>
+                {% else %}{{ form.lesion_location.as_hidden }}{% endif %}
+              </div>
+            </div>
+
             <div class="privacy-note mt-3">
               <i data-lucide="lock"></i>
               <span data-i18n="predict.privacy_note">Image is processed by the Django backend. Not sent to the chatbot API.</span>
@@ -72,16 +147,16 @@
 
             <button type="submit" class="btn app-btn-primary mt-4 w-100" id="submitBtn" disabled>
               <i data-lucide="activity" style="width:16px;height:16px;"></i>
-              <span id="submitLabel" data-i18n="predict.submit">Check image quality &amp; analyze</span>
+              <span id="submitLabel" data-i18n="predict.submit">Analyze image</span>
             </button>
           </form>
         </div>
       </div>
 
       <div class="col-lg-5">
-        <div class="app-card mb-3">
-          <h3 class="h6" data-i18n="predict.classes_title">Supported lesion categories</h3>
-          <p class="text-muted small mb-2" data-i18n="predict.classes_sub">Predictions include both malignant and benign categories.</p>
+        <div class="app-card mb-3" id="dermoscopicClasses">
+          <h3 class="h6" data-i18n="predict.classes_title">Dermoscopic categories (HAM10000)</h3>
+          <p class="text-muted small mb-2" data-i18n="predict.classes_sub">Seven-class dermoscopic prediction.</p>
           <ul class="list-unstyled small mb-0">
             {% for c in classes %}
               <li class="d-flex justify-content-between border-bottom py-1">
@@ -91,7 +166,19 @@
             {% endfor %}
           </ul>
         </div>
-        <div class="medical-disclaimer">
+        <div class="app-card mb-3" id="phoneClasses" hidden>
+          <h3 class="h6" data-i18n="predict.phone_classes_title">Phone-image categories (SkinDisNet)</h3>
+          <p class="text-muted small mb-2" data-i18n="predict.phone_classes_sub">Six-class phone-image prediction.</p>
+          <ul class="list-unstyled small mb-0">
+            {% for c in phone_classes %}
+              <li class="d-flex justify-content-between border-bottom py-1">
+                <code>{{ c.code }}</code>
+                <span class="text-muted" data-i18n="class-name.{{ c.code }}">{{ c.name }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="medical-disclaimer predict-final-disclaimer">
           <strong data-i18n="upload.important">Important:</strong> a high confidence score does not mean the prediction is medically correct. This system is developed for educational/research purposes and is not a medical diagnostic tool. Consult a qualified dermatologist or healthcare professional for proper evaluation.
         </div>
       </div>
@@ -99,11 +186,6 @@
   </div>
 </section>
 
-<!-- Prediction loading overlay — shown when the form is submitted.
-     The browser cannot know the actual backend progress because the
-     upload POST is synchronous; we use an honest indeterminate stepper
-     that advances only through clearly-labelled stages and never
-     claims '100% complete' until the response actually arrives. -->
 {% include "predictor/_prediction_overlay.html" %}
 
 {% endblock %}
@@ -113,24 +195,94 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var submitBtn = document.getElementById('submitBtn');
+    var label = document.getElementById('submitLabel');
+    var imageTypeInput = document.getElementById('id_image_type');
+    var typeCards = document.querySelectorAll('.predict-type-card');
+    var typeRadios = document.querySelectorAll('.predict-type-radio');
+    var phoneMetadata = document.getElementById('phoneMetadata');
+    var dermoscopicClasses = document.getElementById('dermoscopicClasses');
+    var phoneClasses = document.getElementById('phoneClasses');
+    var ageInput = document.getElementById('id_age');
+    var sexInput = document.getElementById('id_sex');
+    var locInput = document.getElementById('id_lesion_location');
+
+    var selectedType = imageTypeInput.value || '';
+
+    function setSelectedType(type) {
+      selectedType = type || '';
+      imageTypeInput.value = selectedType;
+      typeCards.forEach(function (card) {
+        var isMatch = card.dataset.type === selectedType;
+        card.classList.toggle('is-selected', isMatch);
+        var radio = card.querySelector('.predict-type-radio');
+        if (radio) radio.checked = isMatch;
+      });
+      var isPhone = selectedType === 'phone';
+      if (phoneMetadata) phoneMetadata.hidden = !isPhone;
+      if (dermoscopicClasses) dermoscopicClasses.hidden = isPhone;
+      if (phoneClasses) phoneClasses.hidden = !isPhone;
+      if (!isPhone) {
+        if (ageInput) ageInput.value = '';
+        if (sexInput) sexInput.value = '';
+        if (locInput) locInput.value = '';
+      }
+      updateSubmitState();
+    }
+
+    typeCards.forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target.tagName === 'INPUT') return;
+        e.preventDefault();
+        setSelectedType(card.dataset.type);
+      });
+      var radio = card.querySelector('.predict-type-radio');
+      if (radio) {
+        radio.addEventListener('change', function () {
+          if (radio.checked) setSelectedType(card.dataset.type);
+        });
+      }
+    });
+
     var uploader = window.setupImageUpload({
       dropId: 'dropZone',
       inputId: 'imageInput',
       formId: 'uploadForm',
       onFile: function (file) {
-        submitBtn.disabled = !file;
-        var imageName = document.getElementById('id_image_name');
-        if (file && imageName && !imageName.value.trim()) {
-          imageName.value = file.name.replace(/\.[^.]+$/, '');
+        if (file) {
+          var imageName = document.getElementById('id_image_name');
+          if (imageName && !imageName.value.trim()) {
+            imageName.value = file.name.replace(/\.[^.]+$/, '');
+          }
         }
+        updateSubmitState();
       },
     });
-    var realInput = document.getElementById('imageInput');
 
-    // Live multi-stage loading overlay. We honestly cannot know the real
-    // backend progress, so we advance the active stage on a timer — but
-    // the overlay is REMOVED the moment the browser actually navigates
-    // away (response received). We never claim "100% complete" ourselves.
+    function metadataValid() {
+      if (selectedType !== 'phone') return true;
+      if (phoneMetadata && phoneMetadata.hidden) return true;
+      var ok = true;
+      if (ageInput && ageInput.offsetParent !== null) {
+        var v = (ageInput.value || '').trim();
+        if (v === '' || isNaN(parseInt(v, 10))) ok = false;
+      }
+      if (sexInput && sexInput.offsetParent !== null && !sexInput.value) ok = false;
+      if (locInput && locInput.offsetParent !== null && !locInput.value) ok = false;
+      return ok;
+    }
+
+    function updateSubmitState() {
+      var file = uploader ? uploader.getFile() : null;
+      submitBtn.disabled = !(selectedType && file && metadataValid());
+    }
+
+    [ageInput, sexInput, locInput].forEach(function (el) {
+      if (el) el.addEventListener('input', updateSubmitState);
+      if (el) el.addEventListener('change', updateSubmitState);
+    });
+
+    setSelectedType(selectedType);
+
     var form = document.getElementById('uploadForm');
     var overlay = document.getElementById('predictionOverlay');
     var stages = document.querySelectorAll('#predictionStages .prediction-stage');
@@ -149,13 +301,9 @@
         scanImage.hidden = false;
         if (placeholder) placeholder.hidden = true;
       }
-      // Advance stages on a fixed cadence; each stage stays active
-      // until the next one becomes active. Stage 4 stays active until
-      // the server actually responds (the browser navigates away and
-      // the overlay disappears with the page).
       var stageDelays = [0, 1500, 3000, 5500];
       stages.forEach(function (el, i) {
-        if (i === 0) return; // stage 1 already active
+        if (i === 0) return;
         var t = setTimeout(function () {
           stages[i - 1].classList.remove('is-active');
           stages[i - 1].classList.add('is-done');
@@ -166,24 +314,21 @@
     }
 
     form.addEventListener('submit', function (e) {
-      // Native form submission causes a navigation, so we just show the
-      // overlay now and let the browser take over.
       if (submitted) { e.preventDefault(); return; }
+      if (!selectedType) {
+        e.preventDefault();
+        alert(window.DERMA && window.DERMA.t
+          ? window.DERMA.t('predict.select_type_required', 'Please select an image type first.')
+          : 'Please select an image type first.');
+        return;
+      }
       submitted = true;
-      var label = document.getElementById('submitLabel');
-      // Capture the current translated label BEFORE we overwrite it, so we
-      // can restore it (in the user's chosen language) when the timeout
-      // fallback fires. main.js will not re-run after a 60s timer, so a
-      // hard-coded English string here would otherwise leak through the
-      // Bangla UI.
-      var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Check image quality & analyze';
+      var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Analyze image';
       label.textContent = window.DERMA && window.DERMA.t
         ? window.DERMA.t('predict.processing', 'Processing…')
         : 'Processing…';
       submitBtn.disabled = true;
       showOverlay();
-      // If the response fails to load (network error), unlock after 60s
-      // so the user can try again rather than sit on a frozen overlay.
       setTimeout(function () {
         if (submitted) {
           submitted = false;

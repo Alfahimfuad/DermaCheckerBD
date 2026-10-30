@@ -12,7 +12,7 @@ Run:
 
 Then in Django's .env:
     ML_PHONE_MODEL_BACKEND=api
-    AI_PHONE_API_URL=http://127.0.0.1:8002
+    SKINDISNET_API_URL=http://127.0.0.1:8002
 
 The response JSON shape mirrors the dermoscopic mock's contract, but
 with the six SkinDisNet classes in place of the seven HAM10000 classes:

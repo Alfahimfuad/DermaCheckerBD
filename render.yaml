@@ -81,6 +81,34 @@ services:
       - key: AI_API_TIMEOUT
         value: "120"
 
+      # API 3: SkinDisNet Phone-Image Classifier (six-class)
+      - key: ML_PHONE_MODEL_BACKEND
+        value: api
+      - key: SKINDISNET_API_URL
+        sync: false
+      - key: SKINDISNET_API_TOKEN
+        sync: false
+      - key: SKINDISNET_API_FILE_FIELD
+        value: file
+      - key: SKINDISNET_API_TIMEOUT
+        value: "120"
+
+      # SkinDisNet Model Labels (six classes)
+      - key: ML_PHONE_MODEL_CLASSES
+        value: "atopic_dermatitis,contact_dermatitis,eczema,scabies,seborrheic_dermatitis,tinea_corporis"
+      - key: SKINDISNET_MODEL_NAME
+        value: "SkinDisNet EfficientNetB0 + Metadata Fusion"
+      - key: HAM10000_MODEL_NAME
+        value: "HAM10000 ResNet50"
+
+      # Phone-image metadata toggles
+      - key: PHONE_MODEL_USES_AGE
+        value: "True"
+      - key: PHONE_MODEL_USES_SEX
+        value: "True"
+      - key: PHONE_MODEL_USES_LOCATION
+        value: "True"
+
       # Seven-Class Skin Disease Model Labels
       - key: ML_MODEL_CLASSES
         value: "akiec,bcc,bkl,df,mel,nv,vasc"

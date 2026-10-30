@@ -48,6 +48,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 from .prediction import PredictionResult, CLASS_NAMES, CLASS_CATEGORIES
+from .phone_prediction import PHONE_CLASS_NAMES
 from .image_quality import ImageQualityReport
 from .reliability import ReliabilityReport
 from .multi_image import MultiImageReport
@@ -86,6 +87,8 @@ BN_LABELS = {
     "reference_id": "রেফারেন্স আইডি",
     "generated": "তৈরির সময়",
     "model_backend": "মডেল ব্যাকএন্ড",
+    "image_type": "ইমেজ টাইপ",
+    "model_name": "মডেল",
     "input_size": "ইনপুট সাইজ",
     "wrong_input_title": "ভুল ইনপুট সুরক্ষা",
     "wrong_input_default": "ইনপুট অস্বাভাবিক হিসেবে চিহ্নিত।",
@@ -128,6 +131,8 @@ EN_LABELS = {
     "reference_id": "Reference ID",
     "generated": "Generated",
     "model_backend": "Model backend",
+    "image_type": "Image type",
+    "model_name": "Model",
     "input_size": "Input size",
     "wrong_input_title": "Wrong-input protection",
     "wrong_input_default": "Input flagged as unusual.",
@@ -251,7 +256,9 @@ def _labels(language: str = "en"):
     return BN_LABELS if language == "bn" else EN_LABELS
 
 
-def _class_name(code: str, language: str = "en"):
+def _class_name(code: str, language: str = "en", image_type: str = "dermoscopic"):
+    if image_type == "phone":
+        return PHONE_CLASS_NAMES.get(code, code)
     if language == "bn":
         return BN_CLASS_NAMES.get(code, code)
     return CLASS_NAMES.get(code, code)
@@ -278,6 +285,8 @@ class PdfReportService:
         multi_image: Optional[MultiImageReport] = None,
         wrong_input: Optional[WrongInputReport] = None,
         language: str = "en",
+        image_type: str = "dermoscopic",
+        model_name: str = "",
     ) -> bytes:
         """Return raw PDF bytes.
 
@@ -306,9 +315,14 @@ class PdfReportService:
         flow.append(Paragraph(labels["subtitle"], styles["Subtitle"]))
 
         # --- Reference block ---
+        image_type_label = (
+            "Phone Image" if image_type == "phone" else "Dermoscopic"
+        )
         meta_rows = [
             [labels["reference_id"], reference_id],
             [labels["generated"], datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")],
+            [labels["image_type"], image_type_label],
+            [labels["model_name"], model_name or prediction.backend],
             [labels["model_backend"], prediction.backend],
             [labels["input_size"], f"{prediction.input_size}×{prediction.input_size}px"],
         ]
@@ -346,7 +360,7 @@ class PdfReportService:
         flow.append(Paragraph(labels["prediction_title"], styles["H2"]))
         flow.append(Paragraph(
             f"{labels['predicted_class']}: <b>{prediction.predicted_class}</b> "
-            f"({_class_name(prediction.predicted_class, lang)})",
+            f"({_class_name(prediction.predicted_class, lang, image_type)})",
             styles["Body"],
         ))
         flow.append(Paragraph(
@@ -360,23 +374,34 @@ class PdfReportService:
         flow.append(Spacer(1, 4))
 
         # Class probabilities table
-        rows = [[labels["class_header"], labels["name_header"],
-                 labels["category_header"], labels["probability_header"]]]
+        if image_type == "phone":
+            rows = [[labels["class_header"], labels["name_header"], labels["probability_header"]]]
+        else:
+            rows = [[labels["class_header"], labels["name_header"], labels["category_header"], labels["probability_header"]]]
         for code, p in sorted(prediction.probabilities.items(), key=lambda kv: -kv[1]):
-            rows.append([
-                code,
-                _class_name(code, lang),
-                _category_name(CLASS_CATEGORIES.get(code, "?"), lang),
-                f"{p*100:.1f}%",
-            ])
-        t2 = Table(rows, colWidths=[20*mm, 70*mm, 25*mm, 35*mm])
+            if image_type == "phone":
+                rows.append([
+                    code,
+                    _class_name(code, lang, image_type),
+                    f"{p*100:.1f}%",
+                ])
+            else:
+                rows.append([
+                    code,
+                    _class_name(code, lang, image_type),
+                    _category_name(CLASS_CATEGORIES.get(code, "?"), lang),
+                    f"{p*100:.1f}%",
+                ])
+        col_widths = ([20*mm, 90*mm, 40*mm] if image_type == "phone"
+                      else [20*mm, 70*mm, 25*mm, 35*mm])
+        t2 = Table(rows, colWidths=col_widths)
         t2.setStyle(TableStyle([
             ("FONTNAME", (0, 0), (-1, 0), styles["H2"].fontName),
             ("FONTNAME", (0, 1), (-1, -1), styles["Body"].fontName),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("BACKGROUND", (0, 0), (-1, 0), PRIMARY),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+            ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BG, colors.white]),
             ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
