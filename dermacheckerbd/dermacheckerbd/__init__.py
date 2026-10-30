@@ -1,1 +1,0 @@
-"""dermacheckerbd project package."""

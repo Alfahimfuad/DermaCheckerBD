@@ -8,7 +8,7 @@
   <div class="container-xl" style="max-width: 56rem;">
     <span class="app-badge mb-3"><i data-lucide="scan-search" style="width:14px;height:14px;"></i> <span data-i18n="predict.eyebrow">Skin image prediction</span></span>
     <h1 class="mb-2" data-i18n="predict.title">Upload a skin lesion image</h1>
-    <p class="text-muted" data-i18n="predict.subtitle">For better predictions, use dermoscopic images. This system is for research purposes only and is not a medical diagnostic tool. Always consult a qualified dermatologist.</p>
+    <p class="text-muted" data-i18n="predict.subtitle">This system is developed for educational/research purposes and is not a medical diagnostic tool. The prediction should not be considered a medical diagnosis. Please consult a qualified dermatologist or healthcare professional for proper evaluation.</p>
     <hr class="my-4">
 
     {% if error %}
@@ -99,8 +99,11 @@
   </div>
 </section>
 
-
-
+<!-- Prediction loading overlay — shown when the form is submitted.
+     The browser cannot know the actual backend progress because the
+     upload POST is synchronous; we use an honest indeterminate stepper
+     that advances only through clearly-labelled stages and never
+     claims '100% complete' until the response actually arrives. -->
 {% include "predictor/_prediction_overlay.html" %}
 
 {% endblock %}
@@ -124,7 +127,10 @@
     });
     var realInput = document.getElementById('imageInput');
 
-
+    // Live multi-stage loading overlay. We honestly cannot know the real
+    // backend progress, so we advance the active stage on a timer — but
+    // the overlay is REMOVED the moment the browser actually navigates
+    // away (response received). We never claim "100% complete" ourselves.
     var form = document.getElementById('uploadForm');
     var overlay = document.getElementById('predictionOverlay');
     var stages = document.querySelectorAll('#predictionStages .prediction-stage');
@@ -143,7 +149,10 @@
         scanImage.hidden = false;
         if (placeholder) placeholder.hidden = true;
       }
-   
+      // Advance stages on a fixed cadence; each stage stays active
+      // until the next one becomes active. Stage 4 stays active until
+      // the server actually responds (the browser navigates away and
+      // the overlay disappears with the page).
       var stageDelays = [0, 1500, 3000, 5500];
       stages.forEach(function (el, i) {
         if (i === 0) return; // stage 1 already active
@@ -157,18 +166,24 @@
     }
 
     form.addEventListener('submit', function (e) {
-
+      // Native form submission causes a navigation, so we just show the
+      // overlay now and let the browser take over.
       if (submitted) { e.preventDefault(); return; }
       submitted = true;
       var label = document.getElementById('submitLabel');
-
+      // Capture the current translated label BEFORE we overwrite it, so we
+      // can restore it (in the user's chosen language) when the timeout
+      // fallback fires. main.js will not re-run after a 60s timer, so a
+      // hard-coded English string here would otherwise leak through the
+      // Bangla UI.
       var originalLabel = label.getAttribute('data-i18n-original') || label.textContent.trim() || 'Check image quality & analyze';
       label.textContent = window.DERMA && window.DERMA.t
         ? window.DERMA.t('predict.processing', 'Processing…')
         : 'Processing…';
       submitBtn.disabled = true;
       showOverlay();
-
+      // If the response fails to load (network error), unlock after 60s
+      // so the user can try again rather than sit on a frozen overlay.
       setTimeout(function () {
         if (submitted) {
           submitted = false;
