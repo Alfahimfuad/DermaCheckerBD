@@ -1351,6 +1351,55 @@ a:hover { color: var(--primary); }
 }
 
 
+/* ========================================
+   Chatbot Header Action Buttons Fix
+======================================== */
+
+.chatbot-head {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chatbot-head-id {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.chatbot-head-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+    width: auto;
+    margin-left: auto;
+}
+
+.chatbot-head-actions .chatbot-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    flex: 0 0 36px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.chatbot-head-actions .chatbot-icon-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
 
 /* ---- Upload ---- */
 .upload-area {
