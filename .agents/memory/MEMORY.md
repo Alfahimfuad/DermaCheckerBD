@@ -1,2 +1,0 @@
-- [Local Django tests](test-database-ssl.md) — set `DATABASE_URL=` to use SQLite when the injected workspace PostgreSQL endpoint rejects required SSL.
-- [Django test discovery](django-test-discovery.md) — the duplicate nested project tree can confuse default discovery; use explicit root test labels.
