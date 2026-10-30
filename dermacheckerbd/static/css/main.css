@@ -1096,6 +1096,17 @@ a:hover { color: var(--primary); }
 }
 
 
+/* Chatbot Header Actions */
+.chatbot-head-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
 /* Header Buttons */
 .chatbot-icon-btn {
     background: rgba(255, 255, 255, 0.15);
@@ -1351,52 +1362,6 @@ a:hover { color: var(--primary); }
 }
 
 
-
-/* FINAL FIX: Chatbot Header Buttons */
-
-.chatbot-head {
-    position: relative !important;
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    padding-right: 100px !important;
-    min-height: 76px;
-}
-
-.chatbot-head-id {
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
-}
-
-.chatbot-head-actions {
-    position: absolute !important;
-    top: 50% !important;
-    right: 16px !important;
-    transform: translateY(-50%) !important;
-
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-
-    width: auto !important;
-    gap: 8px !important;
-    margin: 0 !important;
-}
-
-.chatbot-head-actions .chatbot-icon-btn {
-    display: inline-flex !important;
-    flex: 0 0 36px !important;
-    width: 36px !important;
-    min-width: 36px !important;
-    height: 36px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
 
 
 
