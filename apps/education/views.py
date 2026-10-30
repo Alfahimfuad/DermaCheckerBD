@@ -6,16 +6,18 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from .content import (
-    EDUCATION_CONTENT, LIBRARY_ARTICLES, all_articles, all_classes,
-    get_article, get_class_info,
+    EDUCATION_CONTENT, LIBRARY_ARTICLES, PHONE_EDUCATION_CONTENT,
+    all_articles, all_classes, all_phone_classes,
+    get_article, get_class_info, get_phone_class_info,
 )
 
 
 @require_http_methods(["GET"])
 def index_view(request):
-    """Landing page: list of all model classes + library articles."""
+    """Landing page: lists both dermoscopic and phone-image model classes + library articles."""
     return render(request, "education/index.html", {
         "classes": all_classes(),
+        "phone_classes": all_phone_classes(),
         "articles": all_articles(),
     })
 
@@ -25,11 +27,17 @@ def class_detail_view(request, code: str):
     """Per-class detail page with overview, appearance, symptoms, care, references."""
     code = (code or "").lower().strip()
     info = get_class_info(code)
+    is_phone = False
     if info is None:
-        raise Http404("Unknown skin lesion class.")
+        info = get_phone_class_info(code)
+        is_phone = info is not None
+    if info is None:
+        raise Http404("Unknown skin condition class.")
     return render(request, "education/detail.html", {
         "info": info,
+        "is_phone": is_phone,
         "all_classes": all_classes(),
+        "all_phone_classes": all_phone_classes(),
     })
 
 

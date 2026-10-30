@@ -113,8 +113,8 @@ class UploadPageSelectableCardTests(TestCase):
 
     def test_upload_page_renders_both_model_info_cards(self):
         response = self.client.get("/predict/")
-        self.assertContains(response, "Dermoscopic ResNet50")
-        self.assertContains(response, "Phone-image EfficientNetB0")
+        self.assertContains(response, "Dermoscopic Image")
+        self.assertContains(response, "Phone Image")
         self.assertContains(response, "7-class")
         self.assertContains(response, "6-class")
 

@@ -399,14 +399,263 @@ EDUCATION_CONTENT = {
 
 
 def get_class_info(code: str) -> dict | None:
-    """Return the education entry for a HAM10000 class code, or None."""
+    """Return the education entry for a dermoscopic class code, or None."""
     return EDUCATION_CONTENT.get(code)
 
 
 def all_classes() -> list:
-    """Return all education entries in canonical HAM10000 order."""
+    """Return all dermoscopic education entries in canonical class order."""
     from apps.common.services.prediction import CLASS_ORDER
     return [EDUCATION_CONTENT[c] for c in CLASS_ORDER if c in EDUCATION_CONTENT]
+
+
+PHONE_EDUCATION_CONTENT = {
+    "atopic_dermatitis": {
+        "code": "atopic_dermatitis",
+        "name": "Atopic dermatitis (eczema)",
+        "short_name": "Atopic dermatitis",
+        "bangla_name": "অ্যাটোপিক ডারমাটাইটিস (একজিমা)",
+        "category": "benign",
+        "overview": (
+            "Atopic dermatitis is a chronic, itchy inflammatory skin condition "
+            "common in children but also affecting adults. It often appears in "
+            "skin folds — elbows, knees, neck — as dry, red, intensely itchy "
+            "patches. It is not contagious and not cancer."
+        ),
+        "appearance": (
+            "Dry, red, scaly patches; thickened skin from scratching; "
+            "may weep or crust during flare-ups."
+        ),
+        "symptoms": (
+            "Intense itching, worse at night; dry skin; red inflamed "
+            "patches; sleep disturbance in children."
+        ),
+        "care": (
+            "Moisturise daily with fragrance-free emollients; avoid harsh "
+            "soaps; identify and avoid triggers (heat, stress, allergens); "
+            "use prescribed topical steroids only as directed."
+        ),
+        "when_to_see_doctor": (
+            "If itching disrupts sleep, the skin becomes infected (pus, "
+            "warmth, swelling), or the rash spreads widely."
+        ),
+        "references": [
+            ("AAD — Eczema", "https://www.aad.org/public/diseases/eczema"),
+            ("National Eczema Association", "https://nationaleczema.org/eczema/"),
+        ],
+        "bangla_summary": (
+            "অ্যাটোপিক ডারমাটাইটিস বা একজিমা একটি দীর্ঘমেয়াদী চুলকানিযুক্ত "
+            "ত্বকের প্রদাহ। কনুই, হাঁটু বা ঘাড়ে শুকনো লাল দাগ হয়। "
+            "এটি সংক্রামক নয়, ক্যান্সার নয়।"
+        ),
+    },
+    "contact_dermatitis": {
+        "code": "contact_dermatitis",
+        "name": "Contact dermatitis",
+        "short_name": "Contact dermatitis",
+        "bangla_name": "কন্টাক্ট ডারমাটাইটিস",
+        "category": "benign",
+        "overview": (
+            "Contact dermatitis is a red, itchy rash caused by direct "
+            "contact with a substance — such as a detergent, metal "
+            "(nickel), cosmetic, or plant. It is not contagious and not "
+            "cancer. The rash usually appears only where the substance "
+            "touched the skin."
+        ),
+        "appearance": (
+            "Red rash, small bumps or blisters; dry, cracked, scaly "
+            "skin; limited to the contact area."
+        ),
+        "symptoms": (
+            "Itching, burning, tenderness; blistering in severe cases; "
+            "rash appears hours to days after contact."
+        ),
+        "care": (
+            "Identify and avoid the trigger substance; wash the area "
+            "with water; apply cool compresses; use over-the-counter "
+            "hydrocortisone for a few days if needed."
+        ),
+        "when_to_see_doctor": (
+            "If the rash covers a large area, is near the eyes, becomes "
+            "infected, or does not improve in 2–3 weeks."
+        ),
+        "references": [
+            ("AAD — Contact dermatitis", "https://www.aad.org/public/diseases/eczema/types-of-eczema/contact-dermatitis"),
+            ("Mayo Clinic — Contact dermatitis", "https://www.mayoclinic.org/diseases-conditions/contact-dermatitis/symptoms-causes/syc-20371533"),
+        ],
+        "bangla_summary": (
+            "কন্টাক্ট ডারমাটাইটিস হলো কোনো পদার্থ (যেমন ডিটারজেন্ট, "
+            "অলঙ্কার ধাতু, প্রসাধনী) সরাসরি স্পর্শে লাল চুলকানিযুক্ত ফুসকুড়ি। "
+            "সংক্রামক নয়, স্পর্শ বন্ধ করলেই সেরে যায়।"
+        ),
+    },
+    "eczema": {
+        "code": "eczema",
+        "name": "Eczema (general)",
+        "short_name": "Eczema",
+        "bangla_name": "একজিমা (সাধারণ)",
+        "category": "benign",
+        "overview": (
+            "Eczema is a general term for inflamed, itchy, red skin. "
+            "It includes atopic dermatitis, contact dermatitis, and "
+            "other forms. It is not contagious and not cancer. Most "
+            "types improve with good skin care and trigger avoidance."
+        ),
+        "appearance": (
+            "Red, dry, itchy patches; small bumps; thickened or "
+            "scaly skin over time."
+        ),
+        "symptoms": "Itching, dryness, redness, sometimes weeping or crusting.",
+        "care": (
+            "Moisturise daily; use mild soap; avoid hot water; "
+            "identify triggers; follow a doctor's treatment plan."
+        ),
+        "when_to_see_doctor": (
+            "If itching is severe, the skin is infected, or the rash "
+            "persists despite self-care."
+        ),
+        "references": [
+            ("AAD — What is eczema?", "https://www.aad.org/public/diseases/eczema"),
+            ("NHS — Eczema", "https://www.nhs.uk/conditions/eczema-atopic-eczema/"),
+        ],
+        "bangla_summary": (
+            "একজিমা হলো লাল, চুলকানিযুক্ত, প্রদাহিত ত্বকের সাধারণ নাম। "
+            "সংক্রামক নয়, ক্যান্সার নয়। ভালো ত্বকের যত্নে উপশম হয়।"
+        ),
+    },
+    "scabies": {
+        "code": "scabies",
+        "name": "Scabies",
+        "short_name": "Scabies",
+        "bangla_name": "স্ক্যাবিস (খাজ)",
+        "category": "benign",
+        "overview": (
+            "Scabies is an itchy rash caused by a tiny mite that burrows "
+            "into the skin. It is contagious through skin-to-skin contact. "
+            "It is not cancer. Itching is often worse at night and between "
+            "fingers, on wrists, waist, and genitals."
+        ),
+        "appearance": (
+            "Small red bumps, thin burrow lines, intense itching; "
+            "common in finger webs, wrists, waistline."
+        ),
+        "symptoms": (
+            "Severe itching, worse at night; thin lines on skin; "
+            "small red bumps; may affect several family members."
+        ),
+        "care": (
+            "See a doctor for prescription scabicide cream; wash all "
+            "clothes and bedding in hot water; treat close contacts "
+            "at the same time."
+        ),
+        "when_to_see_doctor": (
+            "If you suspect scabies — prescription treatment is required. "
+            "Also see a doctor if itching persists after treatment or "
+            "the skin becomes infected."
+        ),
+        "references": [
+            ("CDC — Scabies", "https://www.cdc.gov/scabies/"),
+            ("WHO — Scabies", "https://www.who.int/news-room/questions-and-answers/item/scabies"),
+        ],
+        "bangla_summary": (
+            "স্ক্যাবিস বা খাজ একটি মাইট দ্বারা সংক্রমিত চুলকানিযুক্ত ফুসকুড়ি। "
+            "সংক্রামক কিন্তু ক্যান্সার নয়। চিকিৎসকের পরামর্শে ওষুধ লাগে।"
+        ),
+    },
+    "seborrheic_dermatitis": {
+        "code": "seborrheic_dermatitis",
+        "name": "Seborrheic dermatitis",
+        "short_name": "Seborrheic dermatitis",
+        "bangla_name": "সিবোরিক ডারমাটাইটিস",
+        "category": "benign",
+        "overview": (
+            "Seborrheic dermatitis is a common, chronic skin condition "
+            "that causes red, flaky, greasy-looking patches — most often "
+            "on the scalp (dandruff), eyebrows, sides of the nose, and "
+            "chest. It is not contagious and not cancer."
+        ),
+        "appearance": (
+            "Greasy yellow-white scales on red skin; dandruff on scalp; "
+            "patches on face (eyebrows, nose folds) or chest."
+        ),
+        "symptoms": "Itching, flaking, mild redness; often worse in cold weather or stress.",
+        "care": (
+            "Use anti-dandruff shampoo (ketoconazole, zinc pyrithione) "
+            "on scalp and affected areas; gentle skincare; manage stress."
+        ),
+        "when_to_see_doctor": (
+            "If over-the-counter shampoos do not help, the rash is "
+            "widespread, or the skin becomes infected."
+        ),
+        "references": [
+            ("AAD — Seborrheic dermatitis", "https://www.aad.org/public/diseases/eczema/types-of-eczema/seborrheic-dermatitis"),
+            ("Mayo Clinic — Seborrheic dermatitis", "https://www.mayoclinic.org/diseases-conditions/seborrheic-dermatitis/symptoms-causes/syc-20371534"),
+        ],
+        "bangla_summary": (
+            "সিবোরিক ডারমাটাইটিস মাথার ত্বকে (খুশকি), ভুরু বা নাকের "
+            "পাশে লাল আঁশযুক্ত দাগ তৈরি করে। সংক্রামক নয়, ক্যান্সার নয়।"
+        ),
+    },
+    "tinea_corporis": {
+        "code": "tinea_corporis",
+        "name": "Tinea corporis (ringworm)",
+        "short_name": "Tinea corporis (ringworm)",
+        "bangla_name": "টিনিয়া কর্পোরিস (দাদ)",
+        "category": "benign",
+        "overview": (
+            "Tinea corporis, commonly called ringworm, is a fungal "
+            "infection that causes a red, itchy, ring-shaped rash. "
+            "It is contagious through skin contact and contaminated "
+            "items. It is not cancer. It clears with antifungal cream."
+        ),
+        "appearance": (
+            "Red, scaly ring with a clear center and raised border; "
+            "often on the body (arm, trunk, leg); may itch."
+        ),
+        "symptoms": "Itchy red ring, spreading outward; central clearing; scaly edge.",
+        "care": (
+            "Apply over-the-counter antifungal cream (clotrimazole, "
+            "terbinafine); keep the skin clean and dry; do not share "
+            "towels or clothes."
+        ),
+        "when_to_see_doctor": (
+            "If the rash does not improve after 2 weeks of self-care, "
+            "spreads widely, or affects the scalp or beard."
+        ),
+        "references": [
+            ("CDC — Ringworm", "https://www.cdc.gov/fungal/diseases/ringworm/"),
+            ("AAD — Ringworm", "https://www.aad.org/public/diseases/contagious-skin-diseases/ringworm"),
+        ],
+        "bangla_summary": (
+            "টিনিয়া কর্পোরিস বা দাদ একটি ছত্রাক সংক্রমণ যা লাল চুলকানিযুক্ত "
+            "বৃত্তাকার দাগ তৈরি করে। সংক্রামক কিন্তু ক্যান্সার নয়। "
+            "অ্যান্টিফাঙ্গাল ক্রিমে সেরে যায়।"
+        ),
+    },
+}
+
+
+def get_phone_class_info(code: str) -> dict | None:
+    """Return the education entry for a phone-image class code, or None."""
+    return PHONE_EDUCATION_CONTENT.get(code)
+
+
+def all_phone_classes() -> list:
+    """Return all phone-image education entries in canonical class order."""
+    from apps.common.services.phone_prediction import PHONE_CLASS_ORDER
+    return [
+        PHONE_EDUCATION_CONTENT[c]
+        for c in PHONE_CLASS_ORDER
+        if c in PHONE_EDUCATION_CONTENT
+    ]
+
+
+def get_any_class_info(code: str) -> dict | None:
+    """Return the education entry for any class code (dermoscopic or phone)."""
+    info = EDUCATION_CONTENT.get(code)
+    if info is None:
+        info = PHONE_EDUCATION_CONTENT.get(code)
+    return info
 
 
 # ---------------------------------------------------------------------------

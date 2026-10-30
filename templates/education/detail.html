@@ -14,13 +14,15 @@
     </nav>
 
     <span class="app-badge mb-3">
-      <i data-lucide="book-open" style="width:14px;height:14px;"></i>
-      <span data-i18n-category="{{ info.category }}">{% if info.category == 'pre malignant' %}Pre-malignant{% else %}{{ info.category|title }}{% endif %}</span>
+      <i data-lucide="{% if is_phone %}smartphone{% else %}microscope{% endif %}" style="width:14px;height:14px;"></i>
+      {% if is_phone %}<span data-i18n="edu.phone_model_label">Phone-image model</span>{% else %}<span data-i18n="edu.dermoscopic_model_label">Dermoscopic model</span>{% endif %}
+      · <span data-i18n-category="{{ info.category }}">{% if info.category == 'pre malignant' %}Pre-malignant{% else %}{{ info.category|title }}{% endif %}</span>
     </span>
     <h1 class="mb-1" data-i18n="class-name.{{ info.code }}">{{ info.short_name }}</h1>
     <p class="text-muted mb-1"><code>{{ info.code|upper }}</code> · {{ info.name }}</p>
     <p class="text-muted mb-4" lang="bn">{{ info.bangla_name }}</p>
 
+    {% if not is_phone %}
     <figure class="education-detail-figure education-class-card--{{ info.category|slugify }}">
       <div class="education-detail-image">
         <img
@@ -33,6 +35,7 @@
         <span class="d-block mt-1" data-i18n="edu.class_detail_image_caption">Example only — this image cannot confirm a diagnosis.</span>
       </figcaption>
     </figure>
+    {% endif %}
 
     <div class="result-banner {{ info.category|slugify }} mb-4">
       <div class="banner-icon">
@@ -87,12 +90,26 @@
 
       <div class="col-lg-4">
         <div class="app-card mb-4">
-          <h2 class="h6 mb-3" data-i18n="edu.all_classes">All model classes</h2>
+          <h2 class="h6 mb-2" data-i18n="edu.dermoscopic_title">Dermoscopic model classes</h2>
           <ul class="list-unstyled small mb-0">
             {% for c in all_classes %}
               <li class="border-bottom py-2">
                 <a href="{% url 'education:detail' c.code %}" class="d-flex justify-content-between align-items-center text-decoration-none {% if c.code == info.code %}fw-bold{% endif %}">
                   <span><code>{{ c.code|upper }}</code> <span data-i18n="class-name.{{ c.code }}">{{ c.short_name }}</span></span>
+                  {% if c.code == info.code %}<i data-lucide="chevron-right" style="width:14px;height:14px;"></i>{% endif %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="app-card mb-4">
+          <h2 class="h6 mb-2" data-i18n="edu.phone_title">Phone-image model classes</h2>
+          <ul class="list-unstyled small mb-0">
+            {% for c in all_phone_classes %}
+              <li class="border-bottom py-2">
+                <a href="{% url 'education:detail' c.code %}" class="d-flex justify-content-between align-items-center text-decoration-none {% if c.code == info.code %}fw-bold{% endif %}">
+                  <span><code>{{ c.code }}</code> <span data-i18n="class-name.{{ c.code }}">{{ c.short_name }}</span></span>
                   {% if c.code == info.code %}<i data-lucide="chevron-right" style="width:14px;height:14px;"></i>{% endif %}
                 </a>
               </li>

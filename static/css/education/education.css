@@ -111,3 +111,23 @@
   .education-detail-figure { gap: .75rem; padding: .75rem; }
   .education-detail-image { flex-basis: 125px; height: 125px; }
 }
+
+.edu-section-header {
+  padding: 1rem 1.25rem;
+}
+.edu-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.edu-section-icon.is-phone {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+.edu-section-icon svg { width: 20px; height: 20px; }
