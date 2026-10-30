@@ -605,6 +605,10 @@ class PhotoGuideHandoffTests(TestCase):
             html.index('data-i18n="pg.enhance_note"'),
             html.index('id="downloadQualityImage"'),
         )
+        self.assertLess(
+            html.index('data-i18n="pg.enhance_note"'),
+            html.index('id="runPredictionButton"'),
+        )
         image_data_url = response.context["prediction_data_url"]
         self.assertTrue(image_data_url.startswith("data:image/jpeg;base64,"))
         encoded = image_data_url.split(",", 1)[1]
@@ -640,6 +644,7 @@ class PhotoGuideHandoffTests(TestCase):
         )
         self.assertContains(response, 'id="qualityCustomizer"')
         self.assertContains(response, 'id="downloadQualityImage"')
+        self.assertContains(response, 'id="runPredictionButton"')
 
     def test_customizer_uses_the_enhanced_full_resolution_image(self):
         original = make_skin_image(seed=44, size=(640, 480))
@@ -777,20 +782,15 @@ class PhotoGuideHandoffTests(TestCase):
             response = self.client.post("/quality/", {"image": upload})
 
         html = response.content.decode()
-        # The "Run prediction on this image" button used to live inside
-        # the quality-checker actions partial; it has been moved to the
-        # bottom-of-page dual-prediction section. The section heading
-        # (inside a span tagged data-i18n="pg.run_prediction_heading")
-        # is the canonical place to check for that text now.
-        heading = re.search(
-            r'<span\b[^>]*data-i18n="pg\.run_prediction_heading"[^>]*>(.*?)</span>',
+        button = re.search(
+            r'<button\b(?=[^>]*id="runPredictionButton")[^>]*>(.*?)</button>',
             html,
             re.DOTALL,
         )
-        self.assertIsNotNone(heading)
-        heading_text = re.sub(r"<[^>]+>", "", heading.group(1)).strip()
-        self.assertEqual(heading_text, "Run prediction on this image")
-        self.assertNotIn("Preparing image", heading_text)
+        self.assertIsNotNone(button)
+        button_text = re.sub(r"<[^>]+>", "", button.group(1)).strip()
+        self.assertEqual(button_text, "Run prediction on this image")
+        self.assertNotIn("Preparing image", button_text)
 
 
 @override_settings(ML_MODEL_BACKEND="mock")

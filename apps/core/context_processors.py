@@ -41,14 +41,4 @@ def feature_flags(request):
         "ml_backend": settings.ML_MODEL_BACKEND,
         "show_research_banner": settings.DEBUG,
         "ui_language": ui_language,
-        # Phone-image (SkinDisNet) metadata visibility toggles. The
-        # upload.html / quality_check.html templates use these to decide
-        # whether to render the age / sex / lesion_location fields. We
-        # never assume the model uses any of them — defaults are False.
-        "PHONE_MODEL_USES_AGE": settings.PHONE_MODEL_USES_AGE,
-        "PHONE_MODEL_USES_SEX": settings.PHONE_MODEL_USES_SEX,
-        "PHONE_MODEL_USES_LOCATION": settings.PHONE_MODEL_USES_LOCATION,
-        "PHONE_LESION_LOCATIONS": settings.PHONE_LESION_LOCATIONS,
-        "PHONE_MODEL_AGE_MIN": settings.PHONE_MODEL_AGE_MIN,
-        "PHONE_MODEL_AGE_MAX": settings.PHONE_MODEL_AGE_MAX,
     }

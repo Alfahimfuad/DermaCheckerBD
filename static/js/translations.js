@@ -245,14 +245,7 @@
       'pg.suitable': 'উপযুক্ত',
       'pg.not_suitable': 'উপযুক্ত নয়',
       'pg.suggestions': 'ভালো ছবির জন্য সাজেশন:',
-      // Bottom-of-page "Run prediction on this image" section heading + instruction.
-      // (The dedicated run-prediction button that used to live inside the
-      // quality-checker actions partial has been removed; only the
-      // Download-image button remains there now.)
-      'pg.run_prediction_heading': 'এই ছবিতে প্রেডিকশন চালান',
-      'pg.run_prediction_instruction': 'আপনার আপলোড করা ছবির ধরন অনুযায়ী বেছে নিন। ছবিটি মোবাইল ফোন ক্যামেরায় তোলা হলে Phone Image, অথবা ডার্মাটোস্কোপ দিয়ে তোলা হলে Dermoscopic Image নির্বাচন করুন। এই দুটি অপশন সম্পূর্ণ আলাদা মডেল, ক্লাস তালিকা ও API ব্যবহার করে।',
-      'pg.no_image_for_prediction': 'প্রেডিকশন চালাতে উপরে একটি ছবি আপলোড করুন।',
-      'pg.quality_too_low_for_prediction': 'এই ছবির কোয়ালিটি স্কোর প্রেডিকশনের জন্য প্রয়োজনীয় থ্রেশহোল্ডের নিচে। অনুগ্রহ করে প্রেডিকশন চালানোর আগে একটি পরিষ্কার, আলোকিত ছবি আপলোড করুন।',
+      'pg.run_prediction': 'এই ছবিতে প্রেডিকশন চালান',
       'pg.customize': 'ছবি কাস্টমাইজ করুন',
       'pg.reset_adjustments': 'পরিবর্তন রিসেট করুন',
       'pg.customize_note': 'এখানে শুধু উজ্জ্বলতা ও কনট্রাস্ট বদলায়। এতে রোগ নির্ণয়ের নির্ভুলতা বাড়ে না।',

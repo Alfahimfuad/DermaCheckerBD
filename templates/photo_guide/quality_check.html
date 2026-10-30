@@ -187,153 +187,13 @@
         </div>
       </div>
     {% endif %}
-
-    {# ====================================================================== #}
-    {# Run prediction on this image — bottom-of-page section.                  #}
-    {# Reuses the already-uploaded image and the existing scanning overlay.    #}
-    {# Two clearly-explained buttons: dermoscopic (HAM10000) and phone-image   #}
-    {# (SkinDisNet). Disabled when no image or quality score < 50%.            #}
-    {# ====================================================================== #}
-    <div class="app-card mt-4 predict-quality-actions-card" id="qualityRunPredictionSection">
-      <h2 class="h5 mb-2">
-        <i data-lucide="zap" style="width:18px;height:18px;vertical-align:-2px;"></i>
-        <span data-i18n="pg.run_prediction_heading">Run prediction on this image</span>
-      </h2>
-      <p class="text-muted small mb-3" data-i18n="pg.run_prediction_instruction">
-        Choose the image type that matches your uploaded image. Select <strong>Phone Image</strong>
-        if the photo was taken with a mobile phone camera, or <strong>Dermoscopic Image</strong>
-        if it was captured using a dermatoscope. The two options use completely separate models,
-        class lists, and APIs.
-      </p>
-
-      {% if not image_data_url %}
-        <div class="medical-disclaimer mb-3" role="status" data-i18n="pg.no_image_for_prediction">
-          Upload an image above to enable prediction.
-        </div>
-      {% elif report and report.overall_score < prediction_min_quality_score %}
-        <div class="medical-disclaimer mb-3" role="alert" data-i18n="pg.quality_too_low_for_prediction">
-          This image's quality score ({{ report.overall_score|floatformat:1 }}/100) is below the
-          {{ prediction_min_quality_score|floatformat:0 }}% threshold required for prediction.
-          Please upload a clearer, better-lit image before running a prediction.
-        </div>
-      {% endif %}
-
-      <div class="predict-buttons-row">
-        <form method="post" action="{% url 'predictor:upload' %}" enctype="multipart/form-data"
-              id="qualityDermoForm" class="predict-quality-form" hidden>
-          {% csrf_token %}
-          <input type="hidden" name="image_name" id="qualityDermoName" value="{{ image_name }}">
-          <input type="hidden" name="predict_type" value="dermoscopic">
-        </form>
-        <button type="button"
-                class="btn app-btn-primary predict-btn predict-btn-dermoscopic"
-                id="qualityRunDermo"
-                {% if not image_data_url or report and report.overall_score < prediction_min_quality_score %}disabled{% endif %}
-                data-i18n-title="pg.run_dermoscopic_help">
-          <i data-lucide="microscope" style="width:16px;height:16px;"></i>
-          <span data-i18n="predict.dermoscopic_btn">Predict Dermoscopic Image</span>
-        </button>
-
-        <button type="button"
-                class="btn app-btn-outline-primary predict-btn predict-btn-phone"
-                id="qualityRunPhone"
-                {% if not image_data_url or report and report.overall_score < prediction_min_quality_score %}disabled{% endif %}
-                data-i18n-title="pg.run_phone_help">
-          <i data-lucide="smartphone" style="width:16px;height:16px;"></i>
-          <span data-i18n="predict.phone_btn">Predict Phone Image</span>
-        </button>
-      </div>
-
-      {# Hidden phone-metadata form, populated by JS from the modal. #}
-      <form method="post" action="{% url 'predictor:phone_image_predict' %}" enctype="multipart/form-data"
-            id="qualityPhoneForm" class="predict-quality-form" hidden>
-        {% csrf_token %}
-        <input type="hidden" name="image_name" id="qualityPhoneName" value="{{ image_name }}">
-        <input type="hidden" name="patient_id" id="qualityPhonePatientId" value="">
-        <input type="hidden" name="age" id="qualityPhoneAge" value="">
-        <input type="hidden" name="sex" id="qualityPhoneSex" value="">
-        <input type="hidden" name="lesion_location" id="qualityPhoneLocation" value="">
-      </form>
-      <div class="medical-disclaimer mt-3 mb-0" id="qualityPredictionTransferError" role="alert" hidden
-           data-i18n="pg.transfer_error">
-        The image could not be prepared for prediction. Please try uploading it again.
-      </div>
-    </div>
   </div>
 </section>
-
-{# Phone-image metadata modal — same component as on the upload page so the
-   UX is identical when the user starts from the Quality Checker page. #}
-<div class="predict-modal" id="phoneMetadataModal" hidden role="dialog" aria-modal="true" aria-labelledby="phoneMetadataTitle">
-  <div class="predict-modal-card">
-    <div class="predict-modal-header">
-      <h2 id="phoneMetadataTitle" class="h5 mb-0">
-        <i data-lucide="smartphone" style="width:18px;height:18px;vertical-align:-2px;"></i>
-        <span data-i18n="phone_modal.title">Phone-image prediction details</span>
-      </h2>
-      <button type="button" class="predict-modal-close" id="phoneMetadataClose" aria-label="Close">
-        <i data-lucide="x" style="width:18px;height:18px;"></i>
-      </button>
-    </div>
-    <p class="text-muted small mt-2 mb-3" data-i18n="phone_modal.subtitle">
-      Optional metadata for record-keeping. Patient ID is never used as a prediction feature. Only fields the trained model supports are forwarded.
-    </p>
-    <form id="phoneMetadataForm" autocomplete="off">
-      <div class="row g-3">
-        <div class="col-12">
-          <label class="app-form-label" for="phonePatientId" data-i18n="phone_modal.patient_id">Patient ID / Reference</label>
-          <input type="text" id="phonePatientId" name="patient_id" maxlength="120"
-                 class="form-control app-form-control" autocomplete="off">
-          <div class="form-text" data-i18n="phone_modal.patient_id_help">For record association only. Never used as a prediction feature.</div>
-        </div>
-        {% if PHONE_MODEL_USES_AGE %}
-          <div class="col-md-6">
-            <label class="app-form-label" for="phoneAge" data-i18n="phone_modal.age">Age</label>
-            <input type="number" id="phoneAge" name="age" min="{{ PHONE_MODEL_AGE_MIN }}" max="{{ PHONE_MODEL_AGE_MAX }}"
-                   class="form-control app-form-control" autocomplete="off">
-          </div>
-        {% endif %}
-        {% if PHONE_MODEL_USES_SEX %}
-          <div class="col-md-6">
-            <label class="app-form-label" for="phoneSex" data-i18n="phone_modal.sex">Sex</label>
-            <select id="phoneSex" name="sex" class="form-control app-form-control">
-              <option value="">— Select —</option>
-              <option value="male" data-i18n="phone_modal.sex_male">Male</option>
-              <option value="female" data-i18n="phone_modal.sex_female">Female</option>
-              <option value="other" data-i18n="phone_modal.sex_other">Other</option>
-              <option value="unknown" data-i18n="phone_modal.sex_unknown">Prefer not to say</option>
-            </select>
-          </div>
-        {% endif %}
-        {% if PHONE_MODEL_USES_LOCATION %}
-          <div class="col-12">
-            <label class="app-form-label" for="phoneLesionLocation" data-i18n="phone_modal.lesion_location">Lesion location</label>
-            <select id="phoneLesionLocation" name="lesion_location" class="form-control app-form-control">
-              <option value="">— Select —</option>
-              {% for loc in PHONE_LESION_LOCATIONS %}
-                <option value="{{ loc }}">{{ loc }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        {% endif %}
-      </div>
-      <div class="predict-modal-actions mt-4">
-        <button type="button" class="btn app-btn-outline-primary" id="phoneMetadataCancel" data-i18n="phone_modal.cancel">Cancel</button>
-        <button type="submit" class="btn app-btn-primary" id="phoneMetadataSubmit">
-          <i data-lucide="zap" style="width:16px;height:16px;"></i>
-          <span data-i18n="phone_modal.run">Run phone-image prediction</span>
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
 {% include "predictor/_prediction_overlay.html" %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{% static 'js/image-upload.js' %}" defer></script>
-<script src="{% static 'js/predict-dual.js' %}" defer></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var submit = document.getElementById('qualitySubmit');
@@ -343,14 +203,7 @@
       onFile: function (file) { submit.disabled = !file; }
     });
 
-    // The dedicated "Run prediction on this image" button used to live
-    // inside the quality-checker actions partial. It has been removed
-    // from there per the UI spec — only the Download-image button
-    // remains in that partial. The image-data attributes the page JS
-    // needs (data-image-url / data-customizer-url / data-file-name /
-    // data-enhanced) now live on #downloadQualityImage, so all the
-    // customizer + dual-prediction logic below reads from that element.
-    var runButton = document.getElementById('downloadQualityImage');
+    var runButton = document.getElementById('runPredictionButton');
     var predictionForm = document.getElementById('qualityPredictionForm');
     var predictionName = document.getElementById('qualityPredictionName');
     var imageNameInput = document.getElementById('qualityImageName');
@@ -393,11 +246,6 @@
       if (downloadImage) {
         downloadImage.download = safeImageStem() + (customized ? '-customized' : '') + '.jpg';
       }
-      // Keep the new bottom-of-page forms in sync with the image name.
-      var dermoName = document.getElementById('qualityDermoName');
-      var phoneName = document.getElementById('qualityPhoneName');
-      if (dermoName) dermoName.value = name;
-      if (phoneName) phoneName.value = name;
     }
 
     function dataUrlBytes(dataUrl) {
@@ -418,6 +266,7 @@
       customized = brightnessPercent !== 100 || contrastPercent !== 100;
       if (!customized) {
         runButton.dataset.imageUrl = automaticDataUrl || baseDataUrl;
+        runButton.disabled = false;
 
         if (previewImage) {
           previewImage.src = automaticDataUrl || baseDataUrl;
@@ -443,9 +292,11 @@
         if (dataUrlBytes(dataUrl) <= 10 * 1024 * 1024 - 64 * 1024) break;
       }
       if (dataUrlBytes(dataUrl) > 10 * 1024 * 1024 - 64 * 1024) {
+        runButton.disabled = true;
         if (transferError) transferError.hidden = false;
         return;
       }
+      runButton.disabled = false;
       runButton.dataset.imageUrl = dataUrl;
 
       if (previewImage) {
@@ -491,6 +342,7 @@
       });
       stageTimers.forEach(clearTimeout);
       stageTimers = [];
+      if (runButton) runButton.disabled = false;
     }
 
     function showTransferError(message) {
@@ -504,7 +356,7 @@
     function startPredictionProgress() {
       isSubmitting = true;
       if (scanImage) {
-        scanImage.src = (runButton && runButton.dataset.imageUrl) || baseDataUrl;
+        scanImage.src = runButton.dataset.imageUrl || baseDataUrl;
         scanImage.hidden = false;
       }
       overlay.hidden = false;
@@ -519,29 +371,71 @@
       });
     }
 
-    // The dedicated "Run prediction on this image" button used to live
-    // inside the quality-checker actions partial; it has been removed
-    // and the bottom-of-page dual-prediction buttons
-    // (#qualityRunDermo / #qualityRunPhone) are now the only prediction
-    // entry points on this page. predict-dual.js wires those buttons
-    // and uses the window.DERMA_QUALITY hooks below to read the image
-    // source, customize state, and overlay helpers.
+    if (runButton && predictionForm) {
+      runButton.addEventListener('click', async function () {
+        if (isSubmitting) return;
+        var dataUrl = runButton.dataset.imageUrl || baseDataUrl;
+        var match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+        if (!match || !window.fetch || !window.FormData || !window.Blob) {
+          showTransferError();
+          return;
+        }
+        var timeout;
+        try {
+          var binary = atob(match[2]);
+          var bytes = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          var stem = safeImageStem();
+          var suffix = customized ? '-customized' : (runButton.dataset.enhanced === 'true' ? '-enhanced' : '');
+          var extension = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp'
+          }[match[1]] || 'jpg';
+          var filename = stem + suffix + '.' + extension;
 
-    // Expose quality-check-specific state for predict-dual.js (which
-    // drives the new bottom-of-page prediction buttons on this page).
-    window.DERMA_QUALITY = {
-      getImageDataUrl: function () {
-        return runButton ? (runButton.dataset.imageUrl || baseDataUrl) : '';
-      },
-      getImageName: currentImageName,
-      getCustomized: function () { return customized; },
-      getEnhanced: function () { return runButton ? runButton.dataset.enhanced === 'true' : false; },
-      getSourceName: function () { return sourceName; },
-      startProgress: startPredictionProgress,
-      resetProgress: resetPredictionProgress,
-      showError: showTransferError,
-      transferErrorEl: transferError,
-    };
+          var formData = new FormData(predictionForm);
+          formData.set('image_name', currentImageName());
+          formData.append('image', new Blob([bytes], { type: match[1] }), filename);
+          runButton.disabled = true;
+          if (transferError) transferError.hidden = true;
+          startPredictionProgress();
+
+          var controller = window.AbortController ? new AbortController() : null;
+          timeout = setTimeout(function () {
+            if (controller) controller.abort();
+          }, 120000);
+          var response = await fetch(predictionForm.action, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            signal: controller ? controller.signal : undefined
+          });
+          clearTimeout(timeout);
+          if (response.redirected) {
+            window.location.assign(response.url);
+            return;
+          }
+
+          var responseHtml = await response.text();
+          var responseDocument = new DOMParser().parseFromString(responseHtml, 'text/html');
+          var serverMessage = responseDocument.querySelector('.medical-disclaimer [data-i18n-server]')
+            || responseDocument.querySelector('.medical-disclaimer p');
+          resetPredictionProgress();
+          showTransferError(serverMessage && serverMessage.textContent.trim());
+        } catch (error) {
+          clearTimeout(timeout);
+          resetPredictionProgress();
+          showTransferError(error.name === 'AbortError'
+            ? (window.DERMA && window.DERMA.t
+              ? window.DERMA.t('pg.transfer_timeout', 'Prediction request timed out. Please try again.')
+              : 'Prediction request timed out. Please try again.')
+            : (window.DERMA && window.DERMA.t
+              ? window.DERMA.t('pg.transfer_network_error', 'Image upload failed. Check your connection and try again.')
+              : 'Image upload failed. Check your connection and try again.'));
+        }
+      });
+    }
   });
 </script>
 {% endblock %}

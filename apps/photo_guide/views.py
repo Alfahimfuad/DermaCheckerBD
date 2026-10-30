@@ -8,15 +8,12 @@ from pathlib import Path
 
 from PIL import Image as PILImage
 
-from django.conf import settings
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from apps.common.services.enhancement import ImageEnhancementService
 from apps.common.services.image_quality import ImageQualityService
 from apps.common.services.wrong_input import WrongInputService
-from apps.common.services.phone_prediction import PhoneImagePredictionService
-from apps.common.services.prediction import PredictionService
 
 logger = logging.getLogger(__name__)
 
@@ -196,15 +193,5 @@ def quality_check_view(request):
             "enhancement_report": enhancement_report,
             "uploaded_name": uploaded_name,
             "image_name": image_name,
-            # New: prediction-selection context for the bottom-of-page
-            # "Run prediction on this image" section.
-            "classes": PredictionService.class_metadata(),
-            "phone_classes": PhoneImagePredictionService.class_metadata(),
-            "phone_model_configured": PhoneImagePredictionService.is_configured(),
-            "prediction_min_quality_score": settings.PREDICTION_MIN_QUALITY_SCORE,
-            "quality_score": (
-                float(getattr(report, "overall_score", 0.0) or 0.0)
-                if report is not None else None
-            ),
         },
     )
