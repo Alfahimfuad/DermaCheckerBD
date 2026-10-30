@@ -15,7 +15,7 @@
     </button>
 
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-0 flex-nowrap">
         <li class="nav-item">
           <a class="nav-link app-nav-link" href="{% url 'core:home' %}" data-i18n="nav.home">Home</a>
         </li>
@@ -68,7 +68,7 @@
           <li class="nav-item">
             <form method="post" action="{% url 'logout' %}" class="d-inline">
               {% csrf_token %}
-              <button type="submit" class="btn btn-outline-danger app-btn-outline-danger btn-sm" data-i18n="nav.sign_out">Sign out</button>
+              <button type="submit" class="btn btn-outline-danger app-btn-outline-danger nav-signout-btn" data-i18n="nav.sign_out">Sign out</button>
             </form>
           </li>
         {% else %}
