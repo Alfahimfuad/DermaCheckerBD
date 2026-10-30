@@ -1351,54 +1351,53 @@ a:hover { color: var(--primary); }
 }
 
 
-/* ========================================
-   Chatbot Header Action Buttons Fix
-======================================== */
+
+/* FINAL FIX: Chatbot Header Buttons */
 
 .chatbot-head {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    position: relative !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding-right: 100px !important;
+    min-height: 76px;
 }
 
 .chatbot-head-id {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    min-width: 0;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
 }
 
 .chatbot-head-actions {
+    position: absolute !important;
+    top: 50% !important;
+    right: 16px !important;
+    transform: translateY(-50%) !important;
+
     display: flex !important;
     flex-direction: row !important;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-shrink: 0;
-    width: auto;
-    margin-left: auto;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+
+    width: auto !important;
+    gap: 8px !important;
+    margin: 0 !important;
 }
 
 .chatbot-head-actions .chatbot-icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    flex: 0 0 36px;
-    padding: 0;
-    margin: 0;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
+    display: inline-flex !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
-.chatbot-head-actions .chatbot-icon-btn svg {
-    width: 18px;
-    height: 18px;
-}
 
 
 /* ---- Upload ---- */
