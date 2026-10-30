@@ -331,8 +331,8 @@ HAM10000_CLASS_CATEGORY = {
     "vasc": "benign",
 }
 HAM10000_MODEL_NAME = os.environ.get(
-    "HAM10000_MODEL_NAME", "HAM10000 ResNet50"
-).strip() or "HAM10000 ResNet50"
+    "HAM10000_MODEL_NAME", "Dermoscopic ResNet50"
+).strip() or "Dermoscopic ResNet50"
 HAM10000_MODEL_VERSION = os.environ.get(
     "HAM10000_MODEL_VERSION", ""
 ).strip()
@@ -365,8 +365,8 @@ SKINDISNET_CLASS_NAMES = {
 }
 SKINDISNET_MODEL_NAME = os.environ.get(
     "SKINDISNET_MODEL_NAME",
-    "SkinDisNet EfficientNetB0 + Metadata Fusion",
-).strip() or "SkinDisNet EfficientNetB0 + Metadata Fusion"
+    "Phone-image EfficientNetB0 + Metadata Fusion",
+).strip() or "Phone-image EfficientNetB0 + Metadata Fusion"
 SKINDISNET_MODEL_VERSION = os.environ.get(
     "SKINDISNET_MODEL_VERSION", ""
 ).strip()

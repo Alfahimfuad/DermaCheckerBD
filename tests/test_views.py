@@ -180,7 +180,7 @@ class UploadPagePrivacyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Dermoscopic categories")
         self.assertContains(response, "Phone-image categories")
-        self.assertContains(response, "HAM10000 ResNet50")
+        self.assertContains(response, "Dermoscopic ResNet50")
         self.assertContains(response, "Select Your Image Type")
         self.assertNotContains(response, "AI_API_TOKEN")
         self.assertNotContains(response, "SKINDISNET_API_TOKEN")

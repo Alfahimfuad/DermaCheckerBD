@@ -113,8 +113,8 @@ class UploadPageSelectableCardTests(TestCase):
 
     def test_upload_page_renders_both_model_info_cards(self):
         response = self.client.get("/predict/")
-        self.assertContains(response, "HAM10000 ResNet50")
-        self.assertContains(response, "SkinDisNet EfficientNetB0")
+        self.assertContains(response, "Dermoscopic ResNet50")
+        self.assertContains(response, "Phone-image EfficientNetB0")
         self.assertContains(response, "7-class")
         self.assertContains(response, "6-class")
 
@@ -188,7 +188,7 @@ class UploadRoutingTests(TestCase):
         phone_pred.assert_not_called()
         record = PredictionRecord.objects.get()
         self.assertEqual(record.image_type, "dermoscopic")
-        self.assertIn("HAM10000", record.model_name)
+        self.assertIn("Dermoscopic", record.model_name)
 
     @override_settings(ML_MODEL_BACKEND="mock", ML_PHONE_MODEL_BACKEND="mock")
     def test_phone_pipeline_calls_phoneservice_not_ham10000(self):
@@ -223,7 +223,7 @@ class UploadRoutingTests(TestCase):
         dermo_pred.assert_not_called()
         record = PredictionRecord.objects.get()
         self.assertEqual(record.image_type, "phone")
-        self.assertIn("SkinDisNet", record.model_name)
+        self.assertIn("Phone-image", record.model_name)
         self.assertEqual(record.patient_age, 30)
         self.assertEqual(record.patient_sex, "male")
         self.assertEqual(record.lesion_location, "arm")
@@ -357,12 +357,12 @@ class ResultPageDualPipelineTests(TestCase):
             probabilities={"mel": 0.8, "nv": 0.2},
             backend="mock",
             image_type="dermoscopic",
-            model_name="HAM10000 ResNet50",
+            model_name="Dermoscopic ResNet50",
         )
         self._attach_image(record)
         response = self.client.get(f"/predict/result/{record.reference_id}/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "HAM10000 ResNet50")
+        self.assertContains(response, "Dermoscopic ResNet50")
         self.assertContains(response, "Dermoscopic")
         self.assertContains(response, "Seven-class probabilities")
 
@@ -376,11 +376,11 @@ class ResultPageDualPipelineTests(TestCase):
             probabilities={"eczema": 0.7, "scabies": 0.3},
             backend="phone_mock",
             image_type="phone",
-            model_name="SkinDisNet EfficientNetB0 + Metadata Fusion",
+            model_name="Phone-image EfficientNetB0 + Metadata Fusion",
         )
         self._attach_image(record)
         response = self.client.get(f"/predict/result/{record.reference_id}/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "SkinDisNet EfficientNetB0")
+        self.assertContains(response, "Phone-image EfficientNetB0")
         self.assertContains(response, "Phone Image")
         self.assertContains(response, "Six-class probabilities")

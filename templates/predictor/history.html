@@ -95,9 +95,9 @@
                 <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                   <span class="fw-semibold">{{ r.image_name|default:r.patient_name|default:"Patient image" }}</span>
                   {% if r.image_type == 'phone' %}
-                    <span class="model-type-chip is-phone"><i data-lucide="smartphone" style="width:11px;height:11px;"></i> SkinDisNet</span>
+                    <span class="model-type-chip is-phone"><i data-lucide="smartphone" style="width:11px;height:11px;"></i> Phone</span>
                   {% else %}
-                    <span class="model-type-chip"><i data-lucide="microscope" style="width:11px;height:11px;"></i> HAM10000</span>
+                    <span class="model-type-chip"><i data-lucide="microscope" style="width:11px;height:11px;"></i> Dermoscopic</span>
                   {% endif %}
                 </div>
                 <div class="fw-semibold">

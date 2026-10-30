@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 PHONE_CLASS_NAMES: Dict[str, str] = getattr(settings, "SKINDISNET_CLASS_NAMES", {})
 PHONE_CLASS_ORDER: list = list(getattr(settings, "ML_PHONE_MODEL_CLASSES", []))
 PHONE_MODEL_NAME: str = getattr(
-    settings, "SKINDISNET_MODEL_NAME", "SkinDisNet EfficientNetB0 + Metadata Fusion"
+    settings, "SKINDISNET_MODEL_NAME", "Phone-image EfficientNetB0 + Metadata Fusion"
 )
 PHONE_MODEL_VERSION: str = getattr(settings, "SKINDISNET_MODEL_VERSION", "")
 

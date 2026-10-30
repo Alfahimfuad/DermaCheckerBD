@@ -203,10 +203,10 @@ def quality_check_view(request):
             "phone_uses_age": getattr(settings, "PHONE_MODEL_USES_AGE", True),
             "phone_uses_sex": getattr(settings, "PHONE_MODEL_USES_SEX", True),
             "phone_uses_location": getattr(settings, "PHONE_MODEL_USES_LOCATION", True),
-            "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "HAM10000 ResNet50"),
+            "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "Dermoscopic ResNet50"),
             "phone_model_name": getattr(
                 settings, "SKINDISNET_MODEL_NAME",
-                "SkinDisNet EfficientNetB0 + Metadata Fusion",
+                "Phone-image EfficientNetB0 + Metadata Fusion",
             ),
         },
     )

@@ -1,4 +1,4 @@
-"""Curated, medically-reviewed educational content for each HAM10000 class.
+"""Curated, medically-reviewed educational content for each model class.
 
 Every entry is grounded in publicly available dermatology references
 (AAD, CDC, ISIC, dermatology textbooks). The text is intentionally
@@ -11,7 +11,7 @@ qualified dermatologist.
 from __future__ import annotations
 
 # Each entry is a dict with:
-# - code: HAM10000 class code
+# - code: model class code
 # - name: full medical name
 # - short_name: layperson-friendly name (English)
 # - bangla_name: Bangla name (rendered in Bengali script)
@@ -74,7 +74,7 @@ EDUCATION_CONTENT = {
         "references": [
             ("American Academy of Dermatology — Moles", "https://www.aad.org/public/everyday-care/injured-skin/treat-burns-and-cuts/moles"),
             ("CDC — Skin Cancer Basics", "https://www.cdc.gov/cancer/skin/basic_info/"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "মেলানোসাইটিক নেভাস বা সাধারণ তিল একটি নিরীহ চর্ম বিবর্তন। "
@@ -136,7 +136,7 @@ EDUCATION_CONTENT = {
             ("American Academy of Dermatology — Melanoma", "https://www.aad.org/public/diseases/skin-cancer/types/common/melanoma"),
             ("CDC — Skin Cancer", "https://www.cdc.gov/cancer/skin/"),
             ("Skin Cancer Foundation — Melanoma", "https://www.skincancer.org/skin-cancer-information/melanoma/"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "মেলানোমা ত্বকের একটি গুরুতর ক্যান্সার। দ্রুত শনাক্ত করে অপসারণ "
@@ -189,7 +189,7 @@ EDUCATION_CONTENT = {
         "references": [
             ("American Academy of Dermatology — Seborrheic keratoses", "https://www.aad.org/public/diseases/a-z/seborrheic-keratoses-overview"),
             ("Mayo Clinic — Age spots (liver spots)", "https://www.mayoclinic.org/diseases-conditions/age-spots/symptoms-causes/syc-20355601"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "বিনাইন কেরাটোসিস বা সূর্যের দাগ সাধারণত বয়স্কদের ত্বকে দেখা যায় "
@@ -245,7 +245,7 @@ EDUCATION_CONTENT = {
         "references": [
             ("American Academy of Dermatology — BCC", "https://www.aad.org/public/diseases/skin-cancer/types/common/bcc"),
             ("Skin Cancer Foundation — BCC", "https://www.skincancer.org/skin-cancer-information/basal-cell-carcinoma/"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "বেসাল সেল কার্সিনোমা ত্বকের সবচেয়ে সাধারণ ক্যান্সার। ধীরে বাড়ে, "
@@ -298,7 +298,7 @@ EDUCATION_CONTENT = {
         "references": [
             ("American Academy of Dermatology — Actinic keratosis", "https://www.aad.org/public/diseases/a-z/actinic-keratoses-overview"),
             ("Skin Cancer Foundation — AK", "https://www.skincancer.org/skin-cancer-information/actinic-keratosis/"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "অ্যাকটিনিক কেরাটোসিস প্রি-ক্যান্সার অবস্থা। সঠিক চিকিৎসা না "
@@ -342,7 +342,7 @@ EDUCATION_CONTENT = {
         "references": [
             ("American Osteopathic College of Dermatology — Cherry angioma", "https://www.aocd.org/page/CherryAngioma"),
             ("Cleveland Clinic — Hemangioma", "https://my.clevelandclinic.org/health/diseases/21755-hemangioma"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "ভাসকুলার লেসন সাধারণত নিরীহ রক্তবাহী দাগ। ক্যান্সার নয়। তবে "
@@ -387,7 +387,7 @@ EDUCATION_CONTENT = {
         "references": [
             ("American Osteopathic College of Dermatology — Dermatofibroma", "https://www.aocd.org/page/Dermatofibroma"),
             ("Mayo Clinic — Dermatofibroma", "https://www.mayoclinic.org/diseases-conditions/dermatofibroma/symptoms-causes/syc-20371419"),
-            ("ISIC Archive — HAM10000 dataset", "https://doi.org/10.1038/sdata2018.161"),
+            ("ISIC Archive — Skin lesion image archive", "https://doi.org/10.1038/sdata2018.161"),
         ],
         "bangla_summary": (
             "ডার্মাটোফাইব্রোমা সাধারণত পায়ে দেখা যায় এমন একটি নিরীহ "

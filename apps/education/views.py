@@ -13,7 +13,7 @@ from .content import (
 
 @require_http_methods(["GET"])
 def index_view(request):
-    """Landing page: list of all HAM10000 classes + library articles."""
+    """Landing page: list of all model classes + library articles."""
     return render(request, "education/index.html", {
         "classes": all_classes(),
         "articles": all_articles(),

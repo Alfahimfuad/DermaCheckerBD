@@ -8,6 +8,13 @@
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--border);
   z-index: 1030;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+}
+.app-nav > .container-fluid,
+.app-nav > .container-xl {
+  flex: 1 1 auto;
 }
 
 .app-brand {
@@ -275,6 +282,17 @@
   white-space: nowrap;
   min-height: 0;
   border-width: 1.5px;
+}
+.nav-start-scan-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.95rem !important;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  min-height: 0;
 }
 .nav-language-group { gap: 0.15rem; }
 .history-clear-button {
@@ -809,8 +827,9 @@
   font-size: 0.75rem;
   font-weight: 600;
   min-width: 2.4rem;
-  min-height: 1.9rem;
-  padding: 0.25rem 0.55rem;
+  height: 1.95rem;
+  padding: 0 0.5rem;
+  line-height: 1.3;
 }
 .lang-toggle-btn.active {
   background: var(--primary);

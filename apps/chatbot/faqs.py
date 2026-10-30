@@ -99,6 +99,9 @@ FAQS: List[Dict[str, object]] = [
                 "</ul>"
                 "<p>The Smart Photo Guide checks blur, exposure, framing, and skin "
                 "plausibility before any prediction runs.</p>"
+                "<p>On the upload page, first pick your <b>image type</b>: "
+                "<b>Dermoscopic</b> (7 classes) or <b>Phone Image</b> (6 classes). "
+                "Phone images also need your age, sex, and lesion location.</p>"
             ),
             "bn": (
                 "<p>ভালো ফলাফলের জন্য:</p>"
@@ -110,6 +113,9 @@ FAQS: List[Dict[str, object]] = [
                 "</ul>"
                 "<p>স্মার্ট ফটো গাইড প্রেডিকশনের আগেই ঝাপসা, আলো, ফ্রেমিং ও ত্বক "
                 "যাচাই করে।</p>"
+                "<p>আপলোড পাতায় প্রথমে <b>ইমেজ টাইপ</b> বাছুন: "
+                "<b>ডার্মোস্কোপিক</b> (৭ শ্রেণি) অথবা <b>ফোন ইমেজ</b> (৬ শ্রেণি)। "
+                "ফোন ইমেজের জন্য বয়স, লিঙ্গ ও দাগের অবস্থানও লাগবে।</p>"
             ),
         },
     },
@@ -121,7 +127,8 @@ FAQS: List[Dict[str, object]] = [
         },
         "answer": {
             "en": (
-                "<p>The model classifies a lesion into one of seven HAM10000 classes:</p>"
+                "<p>The <b>dermoscopic model</b> classifies a lesion into one of "
+                "seven classes:</p>"
                 "<ul>"
                 "<li><b>akiec</b> — Actinic Keratoses / Bowen's Disease (pre-malignant)</li>"
                 "<li><b>bcc</b> — Basal Cell Carcinoma (malignant)</li>"
@@ -131,11 +138,13 @@ FAQS: List[Dict[str, object]] = [
                 "<li><b>nv</b> — Melanocytic Nevi (benign)</li>"
                 "<li><b>vasc</b> — Vascular Lesions (benign)</li>"
                 "</ul>"
-                "<p>These are research labels, not a diagnosis.</p>"
+                "<p>The <b>phone-image model</b> recognises six common skin "
+                "conditions (e.g. eczema, scabies, dermatitis). These are research "
+                "labels, not a diagnosis.</p>"
             ),
             "bn": (
-                "<p>মডেলটি একটি দাগকে নিচের সাতটি HAM10000 শ্রেণির যেকোনো একটিতে "
-                "ভাগ করে:</p>"
+                "<p><b>ডার্মোস্কোপিক মডেল</b> একটি দাগকে নিচের সাতটি শ্রেণির "
+                "যেকোনো একটিতে ভাগ করে:</p>"
                 "<ul>"
                 "<li><b>akiec</b> — অ্যাক্টিনিক কেরাটোসিস / বোয়েন রোগ (প্রি-ম্যালিগন্যান্ট)</li>"
                 "<li><b>bcc</b> — বেসাল সেল কার্সিনোমা (ম্যালিগন্যান্ট)</li>"
@@ -145,7 +154,9 @@ FAQS: List[Dict[str, object]] = [
                 "<li><b>nv</b> — মেলানোসাইটিক নেভাই (বিনাইন)</li>"
                 "<li><b>vasc</b> — ভাসকুলার ক্ষত (বিনাইন)</li>"
                 "</ul>"
-                "<p>এগুলো গবেষণামূলক লেবেল, চিকিৎসা-নির্ণয় নয়।</p>"
+                "<p><b>ফোন-ইমেজ মডেল</b> ছয়টি সাধারণ ত্বকের অবস্থা চেনে "
+                "(যেমন একজিমা, স্ক্যাবিস, ডারমাটাইটিস)। এগুলো গবেষণামূলক "
+                "লেবেল, চিকিৎসা-নির্ণয় নয়।</p>"
             ),
         },
     },

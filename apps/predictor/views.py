@@ -92,10 +92,10 @@ def _upload_context(form: ImageUploadForm | None = None, **extra) -> dict:
         "phone_uses_age": getattr(settings, "PHONE_MODEL_USES_AGE", True),
         "phone_uses_sex": getattr(settings, "PHONE_MODEL_USES_SEX", True),
         "phone_uses_location": getattr(settings, "PHONE_MODEL_USES_LOCATION", True),
-        "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "HAM10000 ResNet50"),
+        "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "Dermoscopic ResNet50"),
         "phone_model_name": getattr(
             settings, "SKINDISNET_MODEL_NAME",
-            "SkinDisNet EfficientNetB0 + Metadata Fusion",
+            "Phone-image EfficientNetB0 + Metadata Fusion",
         ),
         **extra,
     }
@@ -106,7 +106,7 @@ def _reject_upload(request, message, **extra):
 
 
 def _predict_dermoscopic(uploaded, pil_image):
-    model_name = getattr(settings, "HAM10000_MODEL_NAME", "HAM10000 ResNet50")
+    model_name = getattr(settings, "HAM10000_MODEL_NAME", "Dermoscopic ResNet50")
     model_version = getattr(settings, "HAM10000_MODEL_VERSION", "")
     backend = PredictionService._resolve_backend()
     try:
@@ -131,7 +131,7 @@ def _predict_dermoscopic(uploaded, pil_image):
 def _predict_phone(form, uploaded, pil_image):
     model_name = getattr(
         settings, "SKINDISNET_MODEL_NAME",
-        "SkinDisNet EfficientNetB0 + Metadata Fusion",
+        "Phone-image EfficientNetB0 + Metadata Fusion",
     )
     model_version = getattr(settings, "SKINDISNET_MODEL_VERSION", "")
     metadata = {

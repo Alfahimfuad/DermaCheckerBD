@@ -108,7 +108,7 @@
 
             <div class="predict-phone-metadata mt-3" id="phoneMetadata" hidden>
               <h3 class="h6 predict-section-title" data-i18n="predict.patient_metadata">Patient metadata</h3>
-              <p class="text-muted small mb-3" data-i18n="predict.metadata_hint">Required for the SkinDisNet phone-image model.</p>
+              <p class="text-muted small mb-3" data-i18n="predict.metadata_hint">Required for the phone-image model.</p>
               <div class="row g-3">
                 {% if phone_uses_age %}
                 <div class="col-sm-4">
@@ -155,7 +155,7 @@
 
       <div class="col-lg-5">
         <div class="app-card mb-3" id="dermoscopicClasses">
-          <h3 class="h6" data-i18n="predict.classes_title">Dermoscopic categories (HAM10000)</h3>
+          <h3 class="h6" data-i18n="predict.classes_title">Dermoscopic categories</h3>
           <p class="text-muted small mb-2" data-i18n="predict.classes_sub">Seven-class dermoscopic prediction.</p>
           <ul class="list-unstyled small mb-0">
             {% for c in classes %}
@@ -167,7 +167,7 @@
           </ul>
         </div>
         <div class="app-card mb-3" id="phoneClasses" hidden>
-          <h3 class="h6" data-i18n="predict.phone_classes_title">Phone-image categories (SkinDisNet)</h3>
+          <h3 class="h6" data-i18n="predict.phone_classes_title">Phone-image categories</h3>
           <p class="text-muted small mb-2" data-i18n="predict.phone_classes_sub">Six-class phone-image prediction.</p>
           <ul class="list-unstyled small mb-0">
             {% for c in phone_classes %}

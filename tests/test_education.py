@@ -1,4 +1,4 @@
-"""Tests for the HAM10000 education library and class example assets."""
+"""Tests for the education library and class example assets."""
 from pathlib import Path
 
 from django.conf import settings
