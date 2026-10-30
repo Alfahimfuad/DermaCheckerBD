@@ -8,11 +8,14 @@ from pathlib import Path
 
 from PIL import Image as PILImage
 
+from django.conf import settings
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from apps.common.services.enhancement import ImageEnhancementService
 from apps.common.services.image_quality import ImageQualityService
+from apps.common.services.phone_prediction import PhoneImagePredictionService
+from apps.common.services.prediction import PredictionService
 from apps.common.services.wrong_input import WrongInputService
 
 logger = logging.getLogger(__name__)
@@ -193,5 +196,17 @@ def quality_check_view(request):
             "enhancement_report": enhancement_report,
             "uploaded_name": uploaded_name,
             "image_name": image_name,
+            "phone_classes": PhoneImagePredictionService.class_metadata(),
+            "phone_configured": PhoneImagePredictionService.is_configured(),
+            "lesion_locations": getattr(settings, "PHONE_LESION_LOCATIONS", []),
+            "sex_choices": getattr(settings, "PHONE_SEX_CHOICES", []),
+            "phone_uses_age": getattr(settings, "PHONE_MODEL_USES_AGE", True),
+            "phone_uses_sex": getattr(settings, "PHONE_MODEL_USES_SEX", True),
+            "phone_uses_location": getattr(settings, "PHONE_MODEL_USES_LOCATION", True),
+            "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "HAM10000 ResNet50"),
+            "phone_model_name": getattr(
+                settings, "SKINDISNET_MODEL_NAME",
+                "SkinDisNet EfficientNetB0 + Metadata Fusion",
+            ),
         },
     )

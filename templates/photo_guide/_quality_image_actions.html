@@ -1,3 +1,62 @@
+<div class="predict-image-type-section mb-3">
+  <label class="app-form-label" data-i18n="predict.select_image_type">Select Your Image Type</label>
+  <div class="predict-type-cards mt-1">
+    <label class="predict-type-card" data-type="dermoscopic">
+      <input type="radio" name="quality_image_type" value="dermoscopic" class="predict-type-radio">
+      <span class="predict-type-card-inner">
+        <span class="predict-type-icon"><i data-lucide="microscope"></i></span>
+        <span class="predict-type-body">
+          <span class="predict-type-title" data-i18n="predict.type_dermoscopic">Dermoscopic Image</span>
+          <span class="predict-type-meta">
+            <span class="predict-type-chip">{{ dermoscopic_model_name }}</span>
+            <span class="predict-type-chip predict-type-chip-count">7-class</span>
+          </span>
+        </span>
+      </span>
+    </label>
+    <label class="predict-type-card" data-type="phone">
+      <input type="radio" name="quality_image_type" value="phone" class="predict-type-radio">
+      <span class="predict-type-card-inner">
+        <span class="predict-type-icon"><i data-lucide="smartphone"></i></span>
+        <span class="predict-type-body">
+          <span class="predict-type-title" data-i18n="predict.type_phone">Phone Image</span>
+          <span class="predict-type-meta">
+            <span class="predict-type-chip">{{ phone_model_name }}</span>
+            <span class="predict-type-chip predict-type-chip-count">6-class</span>
+          </span>
+        </span>
+      </span>
+    </label>
+  </div>
+</div>
+
+<div class="predict-phone-metadata mb-3" id="qualityPhoneMetadata" hidden>
+  {% if phone_uses_age %}
+  <div class="mb-2">
+    <label class="app-form-label" for="qualityAge" data-i18n="predict.age">Age</label>
+    <input type="number" class="form-control app-form-control" id="qualityAge" min="0" max="120" placeholder="Patient age">
+  </div>
+  {% endif %}
+  {% if phone_uses_sex %}
+  <div class="mb-2">
+    <label class="app-form-label" for="qualitySex" data-i18n="predict.sex">Sex</label>
+    <select class="form-control app-form-control" id="qualitySex">
+      <option value="">Select…</option>
+      {% for s in sex_choices %}<option value="{{ s }}">{{ s|capfirst }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  {% if phone_uses_location %}
+  <div class="mb-2">
+    <label class="app-form-label" for="qualityLesionLocation" data-i18n="predict.lesion_location">Lesion location</label>
+    <select class="form-control app-form-control" id="qualityLesionLocation">
+      <option value="">Select…</option>
+      {% for loc in lesion_locations %}<option value="{{ loc }}">{{ loc|capfirst }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+</div>
+
 <div class="mb-3">
   <label class="app-form-label" for="qualityImageName" data-i18n="pg.image_name">Image name</label>
   <input class="form-control app-form-control" type="text" id="qualityImageName"
@@ -13,14 +72,20 @@
           data-image-url="{{ prediction_data_url }}"
           data-customizer-url="{% if customizer_data_url != prediction_data_url %}{{ customizer_data_url|default:'' }}{% endif %}"
           data-file-name="{{ uploaded_name }}"
-          data-enhanced="{% if enhancement_report and enhancement_report.applied %}true{% else %}false{% endif %}">
+          data-enhanced="{% if enhancement_report and enhancement_report.applied %}true{% else %}false{% endif %}"
+          disabled>
     <i data-lucide="zap" aria-hidden="true"></i> <span id="runPredictionLabel" data-i18n="pg.run_prediction">Run prediction on this image</span>
   </button>
 </div>
+<p class="small text-muted mt-2 mb-0" id="qualityTypeHint" data-i18n="pg.select_type_hint">Select an image type above to enable prediction.</p>
 <div id="predictionTransferError" class="medical-disclaimer mt-3 mb-0" role="alert" hidden data-i18n="pg.transfer_error">
   The image could not be prepared for prediction. Please try uploading it again.
 </div>
 <form method="post" action="{% url 'predictor:upload' %}" enctype="multipart/form-data" id="qualityPredictionForm" hidden>
   {% csrf_token %}
   <input type="hidden" name="image_name" id="qualityPredictionName" value="{{ image_name }}">
+  <input type="hidden" name="image_type" id="qualityPredictionType" value="">
+  <input type="hidden" name="age" id="qualityPredictionAge" value="">
+  <input type="hidden" name="sex" id="qualityPredictionSex" value="">
+  <input type="hidden" name="lesion_location" id="qualityPredictionLocation" value="">
 </form>

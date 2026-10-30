@@ -194,6 +194,7 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/image-upload.js' %}" defer></script>
+<link rel="stylesheet" href="{% static 'css/predictor/predictor.css' %}">
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var submit = document.getElementById('qualitySubmit');
@@ -206,6 +207,10 @@
     var runButton = document.getElementById('runPredictionButton');
     var predictionForm = document.getElementById('qualityPredictionForm');
     var predictionName = document.getElementById('qualityPredictionName');
+    var predictionType = document.getElementById('qualityPredictionType');
+    var predictionAge = document.getElementById('qualityPredictionAge');
+    var predictionSex = document.getElementById('qualityPredictionSex');
+    var predictionLocation = document.getElementById('qualityPredictionLocation');
     var imageNameInput = document.getElementById('qualityImageName');
     var transferError = document.getElementById('predictionTransferError');
     var overlay = document.getElementById('predictionOverlay');
@@ -230,6 +235,91 @@
     var sourceName = runButton ? (runButton.dataset.fileName || 'skin-image') : 'skin-image';
     var fallbackName = sourceName.replace(/[\\/]/g, '_').replace(/\.[^.]+$/, '') || 'skin-image';
     var isSubmitting = false;
+
+    var typeCards = document.querySelectorAll('#qualityImageActions .predict-type-card, .quality-image-actions .predict-type-card');
+    if (!typeCards.length) {
+      typeCards = document.querySelectorAll('.predict-type-card');
+    }
+    var typeRadios = document.querySelectorAll('.predict-type-radio');
+    var phoneMetadata = document.getElementById('qualityPhoneMetadata');
+    var qualityAge = document.getElementById('qualityAge');
+    var qualitySex = document.getElementById('qualitySex');
+    var qualityLoc = document.getElementById('qualityLesionLocation');
+    var typeHint = document.getElementById('qualityTypeHint');
+    var selectedType = '';
+
+    function setSelectedType(type) {
+      selectedType = type || '';
+      if (predictionType) predictionType.value = selectedType;
+      typeCards.forEach(function (card) {
+        var isMatch = card.dataset.type === selectedType;
+        card.classList.toggle('is-selected', isMatch);
+        var radio = card.querySelector('.predict-type-radio');
+        if (radio) radio.checked = isMatch;
+      });
+      var isPhone = selectedType === 'phone';
+      if (phoneMetadata) phoneMetadata.hidden = !isPhone;
+      if (!isPhone) {
+        if (qualityAge) qualityAge.value = '';
+        if (qualitySex) qualitySex.value = '';
+        if (qualityLoc) qualityLoc.value = '';
+      }
+      updateRunButtonState();
+    }
+
+    function metadataValid() {
+      if (selectedType !== 'phone') return true;
+      if (phoneMetadata && phoneMetadata.hidden) return true;
+      var ok = true;
+      if (qualityAge && qualityAge.offsetParent !== null) {
+        var v = (qualityAge.value || '').trim();
+        if (v === '' || isNaN(parseInt(v, 10))) ok = false;
+      }
+      if (qualitySex && qualitySex.offsetParent !== null && !qualitySex.value) ok = false;
+      if (qualityLoc && qualityLoc.offsetParent !== null && !qualityLoc.value) ok = false;
+      return ok;
+    }
+
+    function updateRunButtonState() {
+      if (!runButton) return;
+      var ready = !!selectedType && metadataValid();
+      runButton.disabled = !ready;
+      if (typeHint) {
+        if (!selectedType) {
+          typeHint.hidden = false;
+          typeHint.textContent = window.DERMA && window.DERMA.t
+            ? window.DERMA.t('pg.select_type_hint', 'Select an image type above to enable prediction.')
+            : 'Select an image type above to enable prediction.';
+        } else if (!metadataValid()) {
+          typeHint.hidden = false;
+          typeHint.textContent = window.DERMA && window.DERMA.t
+            ? window.DERMA.t('pg.metadata_required', 'Please fill in all required metadata fields.')
+            : 'Please fill in all required metadata fields.';
+        } else {
+          typeHint.hidden = true;
+        }
+      }
+    }
+
+    typeCards.forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target.tagName === 'INPUT') return;
+        e.preventDefault();
+        setSelectedType(card.dataset.type);
+      });
+      var radio = card.querySelector('.predict-type-radio');
+      if (radio) {
+        radio.addEventListener('change', function () {
+          if (radio.checked) setSelectedType(card.dataset.type);
+        });
+      }
+    });
+    [qualityAge, qualitySex, qualityLoc].forEach(function (el) {
+      if (el) {
+        el.addEventListener('input', updateRunButtonState);
+        el.addEventListener('change', updateRunButtonState);
+      }
+    });
 
     function currentImageName() {
       return (imageNameInput && imageNameInput.value.trim()) || fallbackName;
@@ -374,6 +464,18 @@
     if (runButton && predictionForm) {
       runButton.addEventListener('click', async function () {
         if (isSubmitting) return;
+        if (!selectedType) {
+          showTransferError(window.DERMA && window.DERMA.t
+            ? window.DERMA.t('pg.select_type_hint', 'Select an image type above to enable prediction.')
+            : 'Select an image type above to enable prediction.');
+          return;
+        }
+        if (!metadataValid()) {
+          showTransferError(window.DERMA && window.DERMA.t
+            ? window.DERMA.t('pg.metadata_required', 'Please fill in all required metadata fields.')
+            : 'Please fill in all required metadata fields.');
+          return;
+        }
         var dataUrl = runButton.dataset.imageUrl || baseDataUrl;
         var match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
         if (!match || !window.fetch || !window.FormData || !window.Blob) {
@@ -396,6 +498,12 @@
 
           var formData = new FormData(predictionForm);
           formData.set('image_name', currentImageName());
+          formData.set('image_type', selectedType);
+          if (selectedType === 'phone') {
+            if (qualityAge && qualityAge.value) formData.set('age', qualityAge.value);
+            if (qualitySex && qualitySex.value) formData.set('sex', qualitySex.value);
+            if (qualityLoc && qualityLoc.value) formData.set('lesion_location', qualityLoc.value);
+          }
           formData.append('image', new Blob([bytes], { type: match[1] }), filename);
           runButton.disabled = true;
           if (transferError) transferError.hidden = true;
