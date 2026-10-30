@@ -1052,38 +1052,36 @@ a:hover { color: var(--primary); }
 }
 
 
-/* Header Action Buttons */
-.chatbot-head-actions {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 8px !important;
-    flex-shrink: 0 !important;
-    width: auto !important;
-}
-
-.chatbot-head-actions > #chatbotClear,
-.chatbot-head-actions > #chatbotClose {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-
-    width: 30px !important;
-    min-width: 30px !important;
-    max-width: 30px !important;
-    height: 30px !important;
-
-    flex: 0 0 30px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
 .chatbot-head-id {
     display: flex;
     align-items: center;
     gap: 0.6rem;
+}
+
+/* Header Action Buttons */
+.chatbot-head-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.chatbot-head-id {
+    min-width: 0;
+    flex: 1;
+}
+
+.chatbot-head-actions .chatbot-icon-btn {
+    display: inline-flex;
+    flex: 0 0 30px;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    margin: 0;
 }
 
 .chatbot-avatar {
