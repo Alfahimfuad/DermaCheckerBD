@@ -1,0 +1,113 @@
+.education-class-card {
+  --education-accent: #32745e;
+  --education-soft: #edf7f1;
+  --education-border: #d5eadf;
+  --education-surface: #fbfefc;
+  padding: 0;
+  overflow: hidden;
+  border-color: var(--education-border);
+  background: var(--education-surface);
+}
+.education-class-card--malignant,
+.education-detail-figure.education-class-card--malignant {
+  --education-accent: #a33e3c;
+  --education-soft: #fff0ee;
+  --education-border: #f0d4d1;
+  --education-surface: #fffafa;
+}
+.education-class-card--pre-malignant,
+.education-detail-figure.education-class-card--pre-malignant {
+  --education-accent: #94632f;
+  --education-soft: #fff7e8;
+  --education-border: #f0dfbf;
+  --education-surface: #fffdf8;
+}
+.education-class-card--benign,
+.education-detail-figure.education-class-card--benign {
+  --education-accent: #32745e;
+  --education-soft: #edf7f1;
+  --education-border: #d5eadf;
+  --education-surface: #fbfefc;
+}
+.education-class-card::before { background: var(--education-accent); }
+.education-class-card:hover { border-color: var(--education-accent); }
+.education-class-image-panel {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1.45;
+  margin: 0;
+  overflow: hidden;
+  background: var(--education-soft);
+}
+.education-class-image-panel img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.education-class-content { padding: 1.25rem 1.35rem 1.5rem; }
+.education-class-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .85rem;
+}
+.education-class-code,
+.education-class-category {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--education-border);
+  border-radius: 999px;
+  color: var(--education-accent);
+  background: var(--education-soft);
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: .32rem .6rem;
+}
+.education-class-code code {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.education-image-caption {
+  color: var(--text-muted);
+  font-size: .76rem;
+  margin: 0 0 .85rem;
+}
+.education-detail-figure {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin: 1rem 0 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--education-border);
+  border-radius: var(--radius-lg);
+  color: var(--education-accent);
+  background: var(--education-soft);
+}
+.education-detail-image {
+  display: grid;
+  place-items: center;
+  flex: 0 0 170px;
+  height: 150px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--education-surface);
+}
+.education-detail-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.education-detail-figure figcaption {
+  color: var(--text-muted);
+  font-size: .88rem;
+}
+.education-detail-figure figcaption strong { color: var(--education-accent); }
+@media (max-width: 575.98px) {
+  .education-detail-figure { gap: .75rem; padding: .75rem; }
+  .education-detail-image { flex-basis: 125px; height: 125px; }
+}

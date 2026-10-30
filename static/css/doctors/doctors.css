@@ -1,0 +1,237 @@
+.radar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: var(--radius-md);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: white;
+  pointer-events: none;
+  z-index: 1000;
+}
+.radar-sweep {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(13, 148, 136, 0.0) 0deg,
+    rgba(13, 148, 136, 0.5) 60deg,
+    rgba(13, 148, 136, 0.0) 120deg
+  );
+  animation: radar-sweep-rotate 2.5s linear infinite;
+}
+@keyframes radar-sweep-rotate {
+  to { transform: rotate(360deg); }
+}
+.radar-rings {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.radar-rings span {
+  position: absolute;
+  border: 1.5px solid rgba(13, 148, 136, 0.35);
+  border-radius: 50%;
+}
+.radar-rings span:nth-child(1) { width: 80px;  height: 80px;  }
+.radar-rings span:nth-child(2) { width: 160px; height: 160px; }
+.radar-rings span:nth-child(3) { width: 240px; height: 240px; }
+.radar-label {
+  position: relative;
+  z-index: 1;
+  background: rgba(15, 23, 42, 0.85);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.doctors-section .doctors-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.doctors-controls {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.doctors-radius-select {
+  width: auto;
+  min-width: 6rem;
+}
+
+.doctors-switch .form-check-input {
+  cursor: pointer;
+}
+
+.doctors-map-container {
+  position: relative;
+  border-radius: var(--radius-md, 0.5rem);
+  overflow: hidden;
+}
+
+.doctors-map {
+  height: 420px;
+  width: 100%;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 0.5rem);
+  background: #f1f5f9;
+}
+
+.doctors-map-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 0.5rem);
+  background: rgba(248, 250, 252, 0.96);
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+.doctors-map-fallback[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 575.98px) {
+  .doctors-map {
+    height: 320px;
+  }
+}
+
+.doctors-user-marker {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 3px solid white;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.doctors-results {
+  max-height: 540px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.doctors-card-item {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+  border-radius: 0.25rem;
+}
+.doctors-card-item:hover,
+.doctors-card-item:focus {
+  background-color: #f1f5f9;
+  outline: none;
+}
+.doctors-card-item:last-child {
+  border-bottom: none;
+}
+
+.doctors-card-meta .doctors-card-type {
+  font-weight: 500;
+  color: #475569;
+}
+
+.doctors-card-address {
+  margin-top: 0.125rem;
+}
+
+.doctors-card-phone a,
+.doctors-card a {
+  text-decoration: none;
+}
+.doctors-card-phone a:hover,
+.doctors-card a:hover {
+  text-decoration: underline;
+}
+
+.doctors-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.doctors-card-badge {
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.2rem 0.4rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.doctors-card-disclaimer {
+  margin-top: 0.25rem;
+  font-style: italic;
+  color: #94a3b8;
+}
+
+.doctors-card-directions {
+  flex-shrink: 0;
+}
+
+.doctors-empty,
+.doctors-loading,
+.doctors-error {
+  padding: 1rem 0.5rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.doctors-error {
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.doctors-status {
+  min-height: 1.25rem;
+}
+
+.doctors-attribution {
+  opacity: 0.85;
+}
+.doctors-attribution a {
+  text-decoration: none;
+}
+.doctors-attribution a:hover {
+  text-decoration: underline;
+}
+
+.maplibregl-popup-content {
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.375rem;
+}
+.maplibregl-popup-content a {
+  color: #0d9488;
+  text-decoration: none;
+}
+.maplibregl-popup-content a:hover {
+  text-decoration: underline;
+}
+.maplibregl-popup-content small {
+  color: #64748b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep,
+  .radar-rings span {
+    animation: none !important;
+  }
+}
