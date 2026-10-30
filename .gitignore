@@ -3,6 +3,7 @@
 *.env
 !/.env.example
 zipFile.zip
+.config/
 
 # skills directory (private to dev environment)
 skills/
