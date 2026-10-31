@@ -3,6 +3,11 @@
 
 {% block title %}Prediction Reliability Check · DermaCheckerBD{% endblock %}
 
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/predictor/predictor.css' %}">
+{% endblock %}
+
 {% block content %}
 <section class="section">
   <div class="container-xl" style="max-width: 56rem;">
@@ -21,6 +26,31 @@
     <div class="row g-4">
       <div class="col-lg-7">
         <div class="app-card">
+          <div class="predict-image-type-section mb-3">
+            <label class="app-form-label" data-i18n="predict.select_image_type">Select Your Image Type</label>
+            <div class="predict-type-cards mt-1">
+              <label class="predict-type-card{% if selected_image_type == 'dermoscopic' %} is-selected{% endif %}" data-type="dermoscopic">
+                <input type="radio" name="image_type" value="dermoscopic" class="predict-type-radio"{% if selected_image_type == 'dermoscopic' %} checked{% endif %}>
+                <span class="predict-type-card-inner">
+                  <span class="predict-type-icon"><i data-lucide="microscope"></i></span>
+                  <span class="predict-type-body">
+                    <span class="predict-type-title" data-i18n="predict.type_dermoscopic">Dermoscopic Image</span>
+                  </span>
+                  <span class="predict-type-chip predict-type-chip-count">7-class</span>
+                </span>
+              </label>
+              <label class="predict-type-card{% if selected_image_type == 'phone' %} is-selected{% endif %}" data-type="phone">
+                <input type="radio" name="image_type" value="phone" class="predict-type-radio"{% if selected_image_type == 'phone' %} checked{% endif %}>
+                <span class="predict-type-card-inner">
+                  <span class="predict-type-icon"><i data-lucide="smartphone"></i></span>
+                  <span class="predict-type-body">
+                    <span class="predict-type-title" data-i18n="predict.type_phone">Phone Image</span>
+                  </span>
+                  <span class="predict-type-chip predict-type-chip-count">6-class</span>
+                </span>
+              </label>
+            </div>
+          </div>
           <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="upload-area" id="reliabilityDropZone" tabindex="0" role="group" aria-label="Image upload area" data-i18n-aria="aria.image_upload_area">
@@ -172,6 +202,19 @@
       dropId: 'reliabilityDropZone',
       inputId: 'reliabilityImageInput',
       onFile: function (file) { if (submit) submit.disabled = !file; }
+    });
+    var typeCards = document.querySelectorAll('.predict-type-card');
+    typeCards.forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target.tagName === 'INPUT') return;
+        e.preventDefault();
+        var type = card.dataset.type;
+        typeCards.forEach(function (c) {
+          c.classList.toggle('is-selected', c.dataset.type === type);
+          var r = c.querySelector('.predict-type-radio');
+          if (r) r.checked = (c.dataset.type === type);
+        });
+      });
     });
   });
 </script>

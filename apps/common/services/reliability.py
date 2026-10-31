@@ -32,8 +32,15 @@ from PIL import Image, ImageEnhance, ImageOps
 from django.conf import settings
 
 from .prediction import PredictionService, PredictionResult
+from .phone_prediction import PhoneImagePredictionService
 
 logger = logging.getLogger(__name__)
+
+
+def _predict_for_type(image: Image.Image, image_type: str):
+    if image_type == "phone":
+        return PhoneImagePredictionService.predict_pil(image)
+    return PredictionService.predict_pil(image)
 
 
 @dataclass(frozen=True)
@@ -115,15 +122,15 @@ class ReliabilityService:
         return [(n, cls.TRANSFORMS[n][1], cls.TRANSFORMS[n][2]) for n in names if n in cls.TRANSFORMS]
 
     @classmethod
-    def assess_pil(cls, image: Image.Image) -> ReliabilityReport:
+    def assess_pil(cls, image: Image.Image, image_type: str = "dermoscopic") -> ReliabilityReport:
         image = image.convert("RGB")
-        original = PredictionService.predict_pil(image)
+        original = _predict_for_type(image, image_type)
 
         variants: List[VariantResult] = []
         for name, desc, fn in cls.selected_transforms():
             try:
                 modified = fn(image)
-                pred = PredictionService.predict_pil(modified)
+                pred = _predict_for_type(modified, image_type)
                 variants.append(VariantResult(transform=name, description=desc, prediction=pred))
             except Exception as e:
                 logger.warning("Reliability transform %s failed: %s", name, e)
@@ -162,6 +169,6 @@ class ReliabilityService:
         )
 
     @classmethod
-    def assess_bytes(cls, image_bytes: bytes) -> ReliabilityReport:
+    def assess_bytes(cls, image_bytes: bytes, image_type: str = "dermoscopic") -> ReliabilityReport:
         image = Image.open(io.BytesIO(image_bytes))
-        return cls.assess_pil(image)
+        return cls.assess_pil(image, image_type=image_type)

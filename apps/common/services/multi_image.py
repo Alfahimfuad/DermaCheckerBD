@@ -22,8 +22,15 @@ from typing import List
 from PIL import Image
 
 from .prediction import PredictionError, PredictionService, PredictionResult
+from .phone_prediction import PhoneImagePredictionService
 
 logger = logging.getLogger(__name__)
+
+
+def _predict_for_type(image: Image, image_type: str):
+    if image_type == "phone":
+        return PhoneImagePredictionService.predict_pil(image)
+    return PredictionService.predict_pil(image)
 
 
 @dataclass(frozen=True)
@@ -68,10 +75,11 @@ class MultiImageService:
     DISAGREEMENT_THRESHOLD = 0.66
 
     @classmethod
-    def compare_pil(cls, images: List[tuple]) -> MultiImageReport:
+    def compare_pil(cls, images: List[tuple], image_type: str = "dermoscopic") -> MultiImageReport:
         """
         Args:
             images: list of (image_id, PIL.Image) pairs.
+            image_type: "dermoscopic" or "phone" — selects which model to use.
         """
         if not images:
             return MultiImageReport()
@@ -79,7 +87,7 @@ class MultiImageService:
         for idx, (image_id, pil) in enumerate(images):
             try:
                 pil = pil.convert("RGB")
-                pred = PredictionService.predict_pil(pil)
+                pred = _predict_for_type(pil, image_type)
                 per_image.append(ImagePrediction(index=idx, image_id=image_id, prediction=pred))
             except Exception as e:
                 logger.exception("Multi-image prediction failed for index=%s", idx)

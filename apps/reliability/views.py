@@ -7,12 +7,14 @@ import logging
 
 from PIL import Image as PILImage
 
+from django.conf import settings
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
 from apps.common.services.ai_api import NonSkinImageError, validate_skin_image
 from apps.common.services.calibration import CalibrationService
+from apps.common.services.phone_prediction import PhoneImagePredictionService
 from apps.common.services.reliability import ReliabilityService
 from apps.common.services.prediction import PredictionError
 from apps.common.services.wrong_input import WrongInputService
@@ -44,12 +46,16 @@ def check_view(request):
     report = None
     error = None
     image_data_url = None
+    selected_image_type = "dermoscopic"
 
     image_bytes = None
     skin_validation_filename = "skin_image.jpg"
     skin_validation_content_type = "image/jpeg"
     if request.method == "POST":
         uploaded = request.FILES.get("image")
+        posted_type = (request.POST.get("image_type") or "").strip().lower()
+        if posted_type in ("dermoscopic", "phone"):
+            selected_image_type = posted_type
         if uploaded is None:
             error = "Please choose an image before running the reliability check."
         elif uploaded.content_type not in ALLOWED_TYPES:
@@ -73,6 +79,8 @@ def check_view(request):
                 return HttpResponseForbidden(
                     "This prediction record belongs to a different session."
                 )
+        if record.image_type == "phone":
+            selected_image_type = "phone"
         try:
             with record.image.open("rb") as image_file:
                 image_bytes = image_file.read(MAX_BYTES + 1)
@@ -95,7 +103,9 @@ def check_view(request):
                     filename=skin_validation_filename,
                     content_type=skin_validation_content_type,
                 )
-                report = ReliabilityService.assess_pil(pil_image)
+                report = ReliabilityService.assess_pil(
+                    pil_image, image_type=selected_image_type
+                )
                 image_data_url = _pil_to_data_url(pil_image)
             except NonSkinImageError:
                 error = "This image was classified as non-skin."
@@ -113,6 +123,13 @@ def check_view(request):
         "report": report,
         "error": error,
         "image_data_url": image_data_url,
+        "selected_image_type": selected_image_type,
+        "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "Dermoscopic ResNet50"),
+        "phone_model_name": getattr(
+            settings, "SKINDISNET_MODEL_NAME",
+            "Phone-image EfficientNetB0 + Metadata Fusion",
+        ),
+        "phone_configured": PhoneImagePredictionService.is_configured(),
     })
 
 

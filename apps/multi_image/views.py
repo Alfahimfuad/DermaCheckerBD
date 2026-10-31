@@ -7,6 +7,7 @@ from pathlib import Path
 
 from PIL import Image as PILImage
 
+from django.conf import settings
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
@@ -27,8 +28,12 @@ def compare_view(request):
     report = None
     error = None
     preview_pairs = None  # list of (index, base64_image)
+    selected_image_type = "dermoscopic"
 
     if request.method == "POST":
+        posted_type = (request.POST.get("image_type") or "").strip().lower()
+        if posted_type in ("dermoscopic", "phone"):
+            selected_image_type = posted_type
         files = request.FILES.getlist("images")
         if not files:
             error = "No files were uploaded."
@@ -71,7 +76,6 @@ def compare_view(request):
                     error = f"{f.name}: {wrong.warning}"
                     break
                 images_with_ids.append((f.name, pil.convert("RGB")))
-                # Build a small base64 thumbnail for preview
                 buf = io.BytesIO()
                 pil.convert("RGB").resize((160, 160)).save(buf, format="JPEG", quality=80)
                 import base64
@@ -80,7 +84,9 @@ def compare_view(request):
             if not error and len(images_with_ids) >= 2:
                 preview_pairs = previews
                 try:
-                    report = MultiImageService.compare_pil(images_with_ids)
+                    report = MultiImageService.compare_pil(
+                        images_with_ids, image_type=selected_image_type
+                    )
                     if len(report.images) != len(images_with_ids):
                         raise PredictionError("Not all images could be compared.")
                 except PredictionError as e:
@@ -95,4 +101,10 @@ def compare_view(request):
         "error": error,
         "preview_pairs": preview_pairs,
         "max_images": MAX_IMAGES,
+        "selected_image_type": selected_image_type,
+        "dermoscopic_model_name": getattr(settings, "HAM10000_MODEL_NAME", "Dermoscopic ResNet50"),
+        "phone_model_name": getattr(
+            settings, "SKINDISNET_MODEL_NAME",
+            "Phone-image EfficientNetB0 + Metadata Fusion",
+        ),
     })
