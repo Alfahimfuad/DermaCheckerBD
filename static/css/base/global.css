@@ -494,6 +494,8 @@
 .footer-bottom { border-top: 1px solid var(--border); padding: 1.25rem 0; }
 
 .upload-area {
+  display: block;
+  width: 100%;
   border: 2px dashed var(--border-strong);
   border-radius: var(--radius-lg);
   padding: 2.5rem 1.5rem;
