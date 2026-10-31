@@ -22,7 +22,6 @@
     <p class="text-muted mb-1"><code>{{ info.code|upper }}</code> · {{ info.name }}</p>
     <p class="text-muted mb-4" lang="bn">{{ info.bangla_name }}</p>
 
-    {% if not is_phone %}
     <figure class="education-detail-figure education-class-card--{{ info.category|slugify }}">
       <div class="education-detail-image">
         <img
@@ -35,7 +34,6 @@
         <span class="d-block mt-1" data-i18n="edu.class_detail_image_caption">Example only — this image cannot confirm a diagnosis.</span>
       </figcaption>
     </figure>
-    {% endif %}
 
     <div class="result-banner {{ info.category|slugify }} mb-4">
       <div class="banner-icon">
