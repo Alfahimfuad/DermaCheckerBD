@@ -6,6 +6,7 @@
 {% block extra_head %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/predictor/predictor.css' %}">
+  <link rel="stylesheet" href="{% static 'css/multi_image/multi_image.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -112,13 +113,13 @@
         <h3 class="h6 mt-4" data-i18n="mi.per_image">Per-image predictions</h3>
         <div class="row g-3">
           {% for img in report.images %}
-            <div class="col-md-6 col-lg-4">
-              <div class="app-card p-3">
+            <div class="col-md-6 col-lg-4 d-flex">
+              <div class="app-card multi-image-result-card">
                 {% if preview_pairs and forloop.counter0 < preview_pairs|length %}
                   {% with idx=img.index %}
                     {% for pair in preview_pairs %}
                       {% if pair.0 == idx %}
-                        <img src="{{ pair.1 }}" alt="Thumbnail {{ idx|add:1 }}" class="rounded mb-2" style="width:100%; max-height:140px; object-fit:cover;">
+                        <img src="{{ pair.1 }}" alt="Thumbnail {{ idx|add:1 }}" class="rounded mb-2">
                       {% endif %}
                     {% endfor %}
                   {% endwith %}
@@ -129,9 +130,13 @@
                 </div>
                 <div class="small text-muted" data-i18n="class-name.{{ img.prediction.predicted_class }}">{{ img.prediction.predicted_name }}</div>
                 <div class="small"><span data-i18n="mi.confidence">Confidence:</span> {{ img.prediction.confidence|floatformat:3 }}</div>
-                {% if img.prediction.predicted_class != report.modal_class %}
-                  <span class="badge bg-warning mt-2"><i data-lucide="alert-triangle" style="width:12px;height:12px;"></i> <span data-i18n="mi.disagrees">disagrees</span></span>
-                {% endif %}
+                <div class="multi-image-result-footer">
+                  {% if img.prediction.predicted_class != report.modal_class %}
+                    <span class="badge bg-warning"><i data-lucide="alert-triangle" style="width:12px;height:12px;"></i> <span data-i18n="mi.disagrees">disagrees</span></span>
+                  {% else %}
+                    <span class="badge bg-success"><i data-lucide="check" style="width:12px;height:12px;"></i> <span data-i18n="mi.agrees">agrees</span></span>
+                  {% endif %}
+                </div>
               </div>
             </div>
           {% endfor %}
